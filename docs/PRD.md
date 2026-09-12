@@ -1,4 +1,4 @@
-# PRD — Live Quiz Platform (Kahoot Clone)
+# PRD — Pulz (Live Quiz Platform)
 
 **Status:** Draft v1
 **Owner:** Kiran Nayak

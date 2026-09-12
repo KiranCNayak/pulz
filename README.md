@@ -1,4 +1,4 @@
-# kahoot-clone
+# Pulz
 
 Live, real-time quiz platform (Kahoot!-style). Host runs a synchronous quiz
 session; players join from any device via a short join code, answer on a

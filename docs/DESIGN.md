@@ -1,4 +1,4 @@
-# Design Doc — Live Quiz Platform
+# Design Doc — Pulz (Live Quiz Platform)
 
 **Status:** Draft v1 — functional/domain design. Tech stack & infra choices
 are deliberately deferred to a separate architecture doc.

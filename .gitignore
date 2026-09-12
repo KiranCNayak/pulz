@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Env files (never commit real secrets)
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Prisma
+backend/prisma/*.db
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Coverage
+coverage/

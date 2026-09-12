@@ -1,0 +1,99 @@
+// Pulz — Prisma schema
+//
+// Scope: only the durable entities per ARCHITECTURE.md §2 / DESIGN.md §1
+// (Creator, Quiz, Question, Option, ResultsSnapshot). GameSession,
+// Participant, and Answer are deliberately NOT modeled here — per
+// Decision #16 they live only in server process memory while a game is
+// in progress, and are never persisted except as the flattened
+// ResultsSnapshot.payload written once at game end.
+//
+// Constraints Prisma's schema language can't express directly (numeric
+// CHECK constraints, partial unique indexes) are added by hand in the
+// initial migration SQL — see prisma/migrations/0001_init/migration.sql.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Creator {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  quizzes Quiz[]
+
+  @@map("creators")
+}
+
+model Quiz {
+  id         String   @id @default(uuid())
+  creatorId  String   @map("creator_id")
+  title      String
+  coverImage String?  @map("cover_image")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  creator   Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@index([creatorId])
+  @@map("quizzes")
+}
+
+model Question {
+  id               String  @id @default(uuid())
+  quizId           String  @map("quiz_id")
+  order            Int
+  text             String
+  mediaUrl         String? @map("media_url")
+  // Default 20s, clamped 5-120s (PRD §4.1 / Decision #3).
+  // Clamped in the application layer on write; also DB-level CHECK
+  // (see migration.sql) so the invariant holds even for direct DB writes.
+  timeLimitSeconds Int     @default(20) @map("time_limit_seconds")
+
+  quiz    Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  options Option[]
+
+  // Question ordering is unique per quiz.
+  @@unique([quizId, order])
+  @@map("questions")
+}
+
+model Option {
+  id         String  @id @default(uuid())
+  questionId String  @map("question_id")
+  text       String
+  // Exactly one correct option per question is enforced at the
+  // application layer on write (DESIGN.md §1). A partial unique index
+  // (see migration.sql) additionally guarantees at-DB-level that at most
+  // one option per question can be marked correct, as a defense-in-depth
+  // backstop against a buggy/bypassed app-layer check.
+  isCorrect  Boolean @default(false) @map("is_correct")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@map("options")
+}
+
+model ResultsSnapshot {
+  sessionId   String   @id @map("session_id")
+  generatedAt DateTime @default(now()) @map("generated_at")
+  // Configurable TTL, default 24h (PRD §4.4 / Decision #14), enforced by
+  // an in-process sweep (Decision #15) plus a defensive expiresAt filter
+  // on every read.
+  expiresAt   DateTime @map("expires_at")
+  // Podium + paginated ranks payload (DESIGN.md §1/§7). Stored as JSON
+  // since it's a write-once, read-many denormalized snapshot, not a
+  // relation we ever query into.
+  payload     Json
+
+  @@index([expiresAt])
+  @@map("results_snapshots")
+}

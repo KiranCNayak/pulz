@@ -22,6 +22,11 @@ to an MVP that is cheap to run and simple to operate.
   clean, readable scoreboard.
 - Cheap to operate: no native apps, ephemeral state where possible, minimal
   standing infrastructure.
+- **Resilient to anonymous abuse.** The system runs always-on and the
+  Player/Spectator surface is intentionally login-free, so it must tolerate
+  join-code brute-forcing, connection flooding, and message spam from
+  unauthenticated clients without relying on blanket IP bans (IPs are
+  shared/NAT'd/rotatable and not a reliable identity signal). See §8.
 
 **Non-Goals (MVP)**
 - Native mobile apps (iOS/Android) — mobile is supported via responsive web.
@@ -52,7 +57,7 @@ to an MVP that is cheap to run and simple to operate.
 1. Host selects a saved quiz and starts a game session.
 2. System generates:
    - an internal session UUID (unguessable, used for the results link later)
-   - a **4-character alphanumeric join code** (what players type)
+   - a **6-character alphanumeric join code** (what players type)
 3. Host sees two synced views:
    - **Controller view** — interactive: advance/skip/end question, see
      incoming spectator promotion requests, see detailed live standings.
@@ -64,7 +69,7 @@ to an MVP that is cheap to run and simple to operate.
    a podium screen.
 
 ### 4.3 Joining and playing (Player / Spectator)
-1. Player opens the join page, enters the 4-char join code, then a display
+1. Player opens the join page, enters the 6-char join code, then a display
    name (no account).
 2. **Before game start:** joiner becomes a **Player**.
 3. **After game start:** joiner becomes a **Spectator** — same screen layout
@@ -148,7 +153,34 @@ identical points.
   a shared screen (TV, projector) — treated as a first-class "big screen"
   layout, not just a scaled-down controller view.
 
-## 8. Open Items / Future Decisions
+## 8. Abuse Resilience & Rate Limiting (Requirements)
+
+The system is always-on and, by design, requires no account for the
+Player/Spectator surface (§3). That combination means anonymous abuse
+(join-code brute-forcing, connection floods, message spam) has to be
+handled without leaning on login as a gate, and without relying on
+per-IP blanket bans, since IPs are shared (NAT/school Wi-Fi/carrier CGNAT)
+and trivially rotated by an actual attacker — a blanket ban both under- and
+over-punishes. Requirements, mechanism detailed in `ARCHITECTURE.md` §11:
+
+- **Join code space must resist brute-forcing.** Raised from an earlier
+  4-character design to **6-character alphanumeric** (~2.18 billion
+  combinations) specifically for this reason — see `DECISIONS.md` #10.
+- **No permanent, identity-based bans.** Abuse responses must be temporary
+  and tied to a composite signal (IP + lightweight client id), not a
+  standalone IP blacklist — an abusive session should cool down and expire,
+  not calcify into punishing whoever gets that IP next.
+- **Progressive friction, not a hard on/off switch.** Normal users should
+  never see a challenge; only traffic that crosses a suspicion threshold
+  should be throttled, then challenged, then temporarily cooled down.
+- **The expensive, anonymous action (join) must degrade gracefully under
+  attack** without taking down gameplay for legitimate concurrent players
+  in other sessions, or in the same session for players who already joined.
+- **Session creation is not in scope for anonymous-abuse hardening**,
+  since it already requires an authenticated Creator (§3) — the anonymous
+  surface is specifically join / WebSocket connect / in-game messages.
+
+## 9. Open Items / Future Decisions
 
 - Bulk "allow all pending spectators" toggle for host (currently: per-request
   approval only).
@@ -157,7 +189,7 @@ identical points.
 - Results dashboard access model: currently accessible via the session's
   unguessable link; no additional auth layer in MVP.
 
-## 9. Nice-to-Have (Post-MVP)
+## 10. Nice-to-Have (Post-MVP)
 
 - True/false, poll, type-answer, reorder/puzzle, word-cloud question types
 - Media in questions (image/video/audio)

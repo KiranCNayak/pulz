@@ -27,13 +27,14 @@ Option
 
 GameSession
   id (UUID, internal/unguessable)
-  joinCode (4-char alphanumeric, unique among ACTIVE sessions)
+  joinCode (6-char alphanumeric, unique among ACTIVE sessions)
   quizId
   status: LOBBY | IN_PROGRESS | ENDED
   currentQuestionIndex
   questionOrder: number[]        // randomized per session, see §4
   createdAt, startedAt?, endedAt?
   resultsExpiresAt               // set at ENDED, default now()+24h, configurable
+  failedJoinAttempts             // counter for per-code lockout, see §9
 
 Participant
   id, sessionId, displayName
@@ -204,13 +205,41 @@ event stream — no separate backend concept needed:
   be readable after `resultsExpiresAt`**, regardless of how deletion is
   physically implemented.
 
-## 8. Open Questions for the Architecture Doc
+## 8. Abuse Resilience — Functional Design
+
+Requirements are in PRD §8. This section covers the pieces that touch the
+domain model / event flow directly; the infra mechanism (edge layer,
+in-memory limiter implementation) is in `ARCHITECTURE.md` §11.
+
+- **Per-code join lockout**: `GameSession.failedJoinAttempts` increments on
+  each join attempt against that session's code with a name/token that
+  doesn't resolve to a valid, currently-open join (wrong code never reaches
+  this — code lookup itself is the first filter). After a threshold (e.g.
+  20 failed attempts within a short window) against one *specific* code,
+  that code is locked out temporarily — this is what actually stops PIN
+  brute-forcing, independent of the 6-character space size increase, which
+  only raises the cost of a blind guess.
+- **Join is idempotent per composite key within a session**: a client
+  retrying a join (e.g. flaky network) with the same client id should
+  rejoin/resume its existing `Participant`, not create a duplicate — this
+  is needed for reconnect (§ below) anyway, and incidentally reduces noise
+  that could otherwise look like abuse.
+- **`answer:submit` and `promotion:request` abuse is already substantially
+  self-limiting** by existing business rules (one answer per question per
+  participant, role check) — no new domain logic needed there beyond what
+  §5 already specifies; the remaining protection (message-rate capping at
+  the socket level) is infra, not domain, and lives in `ARCHITECTURE.md`
+  §11.
+- **Session creation is out of scope for anonymous-abuse hardening** (PRD
+  §8) since it requires an authenticated Creator already.
+
+## 9. Open Questions for the Architecture Doc
 
 - Transport for realtime sync (WebSocket service choice, or managed
   pub/sub) and how Display/Controller/Player connections are authenticated
   per role.
 - Hosting/DB choice driven by "cheapest that satisfies the TTL requirement"
-  per PRD §8.
+  per PRD §9.
 - Reconnect/resume behavior: what state a Player's client needs to
   rehydrate after a dropped connection mid-question.
 - Load expectations (max concurrent participants per session) — affects

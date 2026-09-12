@@ -133,7 +133,76 @@ Player/Display/Results views instead of duplicated per app.
   separate CI/CD pipeline for MVP. Revisit once there's a team beyond a
   single contributor/agent, or once there's a test suite worth gating on.
 
-## 10. Summary of Stack Choices
+## 11. Abuse Prevention & Rate Limiting
+
+Requirements are in PRD §8; the domain-level pieces (per-code lockout
+counter, idempotent join) are in `DESIGN.md` §8. This section is the
+mechanism. Guiding principle: **the anonymous surface is narrow** — only
+join, WebSocket connect, and in-game messages are unauthenticated (session
+creation already requires a logged-in Creator, per §7) — so defenses are
+scoped to that surface, not the whole app.
+
+**Why not blanket per-IP bans:** IPs are shared behind NAT/school
+Wi-Fi/carrier CGNAT (banning one punishes many innocent future users of a
+reassigned IP) and trivially rotated by an actual attacker (banning
+achieves little against anyone with a proxy pool or botnet). Every
+mechanism below is either edge-layer (cheap, high-leverage, not our code
+to maintain) or scoped/temporary/composite-keyed rather than a permanent
+IP blacklist.
+
+**1. Edge layer — Cloudflare (free tier), in front of both the static
+frontend and the backend origin.**
+- Absorbs L3/L4 volumetric DDoS before it reaches our one small backend
+  instance — this is infrastructure built for exactly this problem; not
+  worth reinventing in application code.
+- **Turnstile** (Cloudflare's free, privacy-friendly CAPTCHA alternative)
+  is available to invoke *conditionally* (see the friction ladder below),
+  not on every request — keeps the no-login, low-friction join experience
+  intact for the overwhelming majority of legitimate players.
+- Effectively free; directly serves the "always-on and cheap" constraint
+  from the PRD.
+
+**2. Composite-key rate limiting, not raw-IP.**
+Key = `IP + a lightweight client id` (an opaque value set in a cookie or
+`localStorage` on first visit — not authentication, just a tag that raises
+the cost of evasion beyond "rotate your IP"). Implemented as an in-process
+token-bucket/sliding-window limiter (same process as the Socket.IO
+server — no extra service, consistent with the "no standing infra beyond
+one instance" theme elsewhere in this doc). Limits differ per action
+because legitimate-use shapes differ:
+
+| Action | Legitimate pattern | Limit shape |
+|---|---|---|
+| Join attempt, any code | A person retries a couple of times, typos included | Loose per-IP window (must tolerate shared-IP classrooms) |
+| Join attempt against **one specific code** | A whole class can legitimately hit the same code within seconds | Lock out that *code* (not the IP) after N failed attempts — see `DESIGN.md` §8's `failedJoinAttempts` — this is what actually defeats PIN brute-forcing |
+| New WebSocket connection | ~1 per device per session | Cap new connections/minute per composite key |
+| `answer:submit` / `promotion:request` | Bounded by game rules already (one answer per question, role check) | No new limiter needed — see `DESIGN.md` §8; only a coarse message-rate cap at the socket level as a backstop against protocol-level garbage |
+
+**3. Progressive friction ladder, not a binary ban:**
+`allow → throttle (delay the response) → challenge (Turnstile) → temporary
+cooldown (minutes, on the composite key)`. Nothing here is permanent —
+cooldowns expire on their own, so an attacker's cost is "wait a few
+minutes and get a new client id," which is a real cost, while a legitimate
+user who trips a false positive is never locked out for long.
+
+**4. Resource caps as a backstop**, independent of whether the limiter
+catches everything upstream: a max on concurrent sessions server-wide and
+participants per session (ARCHITECTURE.md §8 already sets rough scale
+expectations) protects the actual scarce resource — this process's memory —
+even if some abusive traffic gets through.
+
+**5. Reputation via decay, not a persistent blacklist table.** Strike
+counts per composite key live in the same in-process store as the rate
+limiter (e.g. a leaky bucket) and age out over minutes/hours on their own.
+This is what makes "no blanket ban" concrete: there is no durable ban
+list to accumulate, audit, or accidentally leave stale entries in.
+
+**Explicit non-goals for MVP:** full bot-detection/fingerprinting beyond
+the composite key, a dedicated WAF beyond Cloudflare's free-tier defaults,
+and any persistent abuse database — all would add cost/complexity ahead of
+evidence that the lighter measures above are insufficient.
+
+## 12. Summary of Stack Choices
 
 | Layer | Choice |
 |---|---|
@@ -147,3 +216,5 @@ Player/Display/Results views instead of duplicated per app.
 | Frontend hosting | Static host (Cloudflare Pages / Vercel / Netlify free tier) |
 | Backend hosting | Fly.io or Render, always-on hobby instance |
 | Auth | Email/password (or minimal JWT) for Creators only |
+| Edge/DDoS layer | Cloudflare free tier (in front of frontend + backend) |
+| Abuse rate limiting | In-process composite-key (IP + client id) token bucket, no external service |

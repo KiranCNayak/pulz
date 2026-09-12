@@ -11,10 +11,16 @@ live scoring, leaderboard rank, and a podium finish.
 
 ## Current status (2026-09-12)
 
-**Design phase — no implementation yet.** The repo currently contains only
-documentation. Do not assume any backend/frontend code exists until you've
-checked — verify with `ls`/`git log`, don't rely on this file staying
-current about that fact.
+**Backend scaffolded; frontend not started.** `backend/` has a working
+Fastify + Socket.IO + Prisma/Postgres skeleton (health check, stub socket
+join handler, rooms-as-sessions wiring) and a first pass at the Creator
+quiz-CRUD REST endpoints (create/list/get/update/delete quiz; add/update/
+delete/reorder questions), with exactly-one-correct-option and
+5-120s-time-limit validation enforced. See `docs/DECISIONS.md` #25-#30 for
+the choices made while scaffolding (Prisma, folder layout, the temporary
+`x-creator-id` header standing in for real Creator auth). No frontend code
+exists yet. Don't assume this summary stays accurate as work continues —
+verify with `ls`/`git log`.
 
 ## Read these first, in order
 
@@ -57,18 +63,34 @@ current about that fact.
 
 ## Likely next steps (as of this writing)
 
-No code exists yet. The natural next steps, roughly in order:
-1. Scaffold the backend (Fastify + Socket.IO + Postgres client) per
-   `docs/ARCHITECTURE.md`.
+Backend scaffold + a first pass of Creator CRUD exist (see "Current
+status" above). Natural next steps, roughly in order:
+1. ~~Scaffold the backend (Fastify + Socket.IO + Postgres client) per
+   `docs/ARCHITECTURE.md`.~~ Done.
 2. Scaffold the frontend (React + Vite) with the route structure from
    `docs/ARCHITECTURE.md` §5.
-3. Implement the Creator flow (quiz CRUD) first — it's the simplest,
-   least real-time-dependent piece, and everything else depends on a quiz
-   existing.
+3. Finish the Creator flow: replace the placeholder `x-creator-id` header
+   (`backend/src/routes/quiz.route.ts`) with real Creator auth
+   (email/password or minimal JWT, per `docs/ARCHITECTURE.md` §7) —
+   nothing else should be treated as "real" ownership enforcement until
+   this lands. A live Postgres instance is also still needed: point
+   `DATABASE_URL` at one and run `npx prisma migrate dev` (or
+   `migrate deploy` against the hand-authored `0001_init` migration) to
+   verify it end-to-end against a real DB — it's only been typechecked/
+   built/smoke-tested against `/health` so far, not exercised against
+   Postgres.
 4. Implement the session/game loop (join, lobby, question broadcast,
    answer submission, scoring, leaderboard) per the state machine and
-   event catalogue in `docs/DESIGN.md`.
-5. Implement the podium/results flow, including the TTL cleanup sweep.
+   event catalogue in `docs/DESIGN.md`. The current `backend/src/sockets/`
+   handlers are intentionally thin stubs (room-join only) — this step
+   replaces them with the real in-memory GameSession/Participant/Answer
+   model per `docs/ARCHITECTURE.md` §2, plus the abuse-resilience pieces
+   in `docs/ARCHITECTURE.md` §11 (rate limiting, per-code lockout) which
+   aren't implemented at all yet.
+5. Implement the podium/results flow. The `ResultsSnapshot` table and its
+   in-process TTL cleanup sweep (`backend/src/db/resultsCleanup.ts`) are
+   already scaffolded; what's missing is actually writing a snapshot at
+   `game:ended` and the results-fetch endpoint/page.
 
 If you're an agent starting implementation, confirm with the project
 owner which of these to tackle first rather than assuming — this list is

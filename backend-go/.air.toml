@@ -1,0 +1,15 @@
+# air (hot reload) config for backend-go — mirrors the Node backend's
+# `tsx watch` dev loop. Install: go install github.com/air-verse/air@latest
+# Run: air
+root = "."
+tmp_dir = "tmp-air"
+
+[build]
+  cmd = "go build -o ./tmp-air/server ./cmd/server"
+  bin = "./tmp-air/server"
+  include_ext = ["go"]
+  exclude_dir = ["tmp-air", "bin"]
+  delay = 200
+
+[log]
+  time = true

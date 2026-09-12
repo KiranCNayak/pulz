@@ -22,6 +22,11 @@ the choices made while scaffolding (Prisma, folder layout, the temporary
 exists yet. Don't assume this summary stays accurate as work continues —
 verify with `ls`/`git log`.
 
+There is also a **`backend-go/`** directory — this is a separate,
+non-shipping performance-exploration module (Go), not an alternative or
+successor to `backend/`. Do not port MVP work there or treat it as the
+real backend. See `docs/GO_V2_EXPLORATION.md` and Decision #31.
+
 ## Read these first, in order
 
 1. **`docs/PRD.md`** — product requirements: goals/non-goals, roles, user
@@ -95,3 +100,9 @@ status" above). Natural next steps, roughly in order:
 If you're an agent starting implementation, confirm with the project
 owner which of these to tackle first rather than assuming — this list is
 a plausible ordering, not a locked-in plan.
+
+**Separately, and not part of the above ordering:** `backend-go/` is a
+low-priority, owner-driven exploration to measure Go vs. Node performance
+for this workload — see `docs/GO_V2_EXPLORATION.md`. It currently has only
+a health-check endpoint. Pick it up only if explicitly asked to; it does
+not block or get ahead of steps 2–5 above.

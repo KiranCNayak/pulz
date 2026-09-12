@@ -14,5 +14,18 @@ See:
   choices, with reasoning
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — quick-reference log of
   settled decisions
+- [`docs/GO_V2_EXPLORATION.md`](docs/GO_V2_EXPLORATION.md) — scope of the
+  `backend-go/` performance exploration (not the MVP backend)
 
-**Status:** design phase — no implementation yet.
+## Layout
+
+- [`backend/`](backend/) — the real MVP backend (Node.js/TypeScript,
+  Fastify + Socket.IO + Prisma/Postgres). Health check and Creator
+  quiz-CRUD scaffolded; see `CLAUDE.md` for current status and next steps.
+- [`backend-go/`](backend-go/) — **not** the MVP backend. A separate,
+  low-priority Go performance-exploration module; see
+  `docs/GO_V2_EXPLORATION.md`.
+- `frontend/` — not started yet.
+
+**Status:** MVP backend scaffolding in progress; frontend not started.
+See `CLAUDE.md` for the up-to-date picture.

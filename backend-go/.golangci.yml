@@ -1,0 +1,14 @@
+# golangci-lint config for the backend-go exploration module.
+# Install: go install github.com/golangci-lint/golangci-lint/cmd/golangci-lint@latest
+# Run: golangci-lint run ./...
+run:
+  timeout: 3m
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - errcheck
+    - gofmt
+    - goimports

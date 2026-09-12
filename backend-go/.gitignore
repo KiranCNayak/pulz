@@ -1,0 +1,11 @@
+# Build artifacts
+/bin/
+/tmp/
+*.exe
+
+# air hot-reload
+/tmp-air/
+build-errors.log
+
+# env
+.env

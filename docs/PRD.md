@@ -201,3 +201,7 @@ over-punishes. Requirements, mechanism detailed in `ARCHITECTURE.md` §11:
 - Bulk spectator-approval toggle for host
 - PWA / installable web app
 - Native mobile apps
+- **Go backend performance exploration** — a parallel, non-shipping `backend-go/`
+  module to measure whether a Go rewrite meaningfully outperforms the
+  Node.js backend for this workload. Owner-driven curiosity, not a planned
+  migration. See `docs/GO_V2_EXPLORATION.md`.

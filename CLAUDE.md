@@ -9,18 +9,39 @@ synchronous quiz session, players join from any device via a short join
 code (no account needed), answer on a color/shape button grid, and see
 live scoring, leaderboard rank, and a podium finish.
 
-## Current status (2026-09-12)
+## Current status (2026-09-13)
 
-**Backend scaffolded; frontend not started.** `backend/` has a working
-Fastify + Socket.IO + Prisma/Postgres skeleton (health check, stub socket
-join handler, rooms-as-sessions wiring) and a first pass at the Creator
-quiz-CRUD REST endpoints (create/list/get/update/delete quiz; add/update/
-delete/reorder questions), with exactly-one-correct-option and
-5-120s-time-limit validation enforced. See `docs/DECISIONS.md` #25-#30 for
-the choices made while scaffolding (Prisma, folder layout, the temporary
-`x-creator-id` header standing in for real Creator auth). No frontend code
-exists yet. Don't assume this summary stays accurate as work continues —
-verify with `ls`/`git log`.
+**Backend game loop + results implemented; Creator auth still a
+placeholder; frontend not started.** `backend/` now has, on top of the
+Fastify + Prisma/Postgres skeleton and Creator quiz-CRUD REST endpoints:
+
+- `POST /quizzes/:id/sessions` — creates a live `GameSession` from a
+  saved quiz (snapshotted, so mid-game Creator edits can't change a
+  running game), gated by the same placeholder `x-creator-id` header as
+  quiz CRUD.
+- A full Socket.IO game loop (`backend/src/sockets/session.socket.ts`,
+  `services/gameLoop.service.ts`, `services/join.service.ts`): host/
+  display auth, join/reconnect (idempotent via participant token),
+  per-session-shuffled question/option order, server-authoritative
+  `answer:submit` scoring (DESIGN.md §5), spectator promotion request/
+  decision, and the state machine per DESIGN.md §2 — collapsed from its
+  literal 3 host-clicks-per-question to 2 (see Decision #33).
+- Join-code brute-force lockout and basic in-process rate limiting
+  (`backend/src/domain/rateLimiter.ts`) per DESIGN.md §8 /
+  ARCHITECTURE.md §11 — the app-level piece only; Cloudflare/Turnstile
+  edge protection is still not-yet-provisioned infra, not app code.
+- `game:ended` writes a `ResultsSnapshot`; `GET /results/:sessionId`
+  reads it back, paginated per PRD §6.
+
+Verified end-to-end against a throwaway local Postgres container: quiz
+creation → session creation → a real Socket.IO client driving a full
+two-question game (join, start, answer, lock/reveal/leaderboard, advance,
+end) → results fetch, plus the join-code lockout behavior. See
+`docs/DECISIONS.md` #25-#37 for the choices made along the way (Prisma,
+folder layout, the temporary `x-creator-id` header, the 2-click state
+machine, code-string-keyed lockout tracking). No frontend code exists
+yet. Don't assume this summary stays accurate as work continues — verify
+with `ls`/`git log`.
 
 There is also a **`backend-go/`** directory — this is a separate,
 non-shipping performance-exploration module (Go), not an alternative or
@@ -68,34 +89,28 @@ real backend. See `docs/GO_V2_EXPLORATION.md` and Decision #31.
 
 ## Likely next steps (as of this writing)
 
-Backend scaffold + a first pass of Creator CRUD exist (see "Current
-status" above). Natural next steps, roughly in order:
+Backend now has Creator CRUD, session creation, the full game loop, and
+results (see "Current status" above). Natural next steps, roughly in
+order:
 1. ~~Scaffold the backend (Fastify + Socket.IO + Postgres client) per
    `docs/ARCHITECTURE.md`.~~ Done.
 2. Scaffold the frontend (React + Vite) with the route structure from
-   `docs/ARCHITECTURE.md` §5.
+   `docs/ARCHITECTURE.md` §5. **No frontend code exists yet** — this is
+   the biggest remaining gap; the backend has no UI in front of it at
+   all right now.
 3. Finish the Creator flow: replace the placeholder `x-creator-id` header
-   (`backend/src/routes/quiz.route.ts`) with real Creator auth
-   (email/password or minimal JWT, per `docs/ARCHITECTURE.md` §7) —
-   nothing else should be treated as "real" ownership enforcement until
-   this lands. A live Postgres instance is also still needed: point
-   `DATABASE_URL` at one and run `npx prisma migrate dev` (or
-   `migrate deploy` against the hand-authored `0001_init` migration) to
-   verify it end-to-end against a real DB — it's only been typechecked/
-   built/smoke-tested against `/health` so far, not exercised against
-   Postgres.
-4. Implement the session/game loop (join, lobby, question broadcast,
-   answer submission, scoring, leaderboard) per the state machine and
-   event catalogue in `docs/DESIGN.md`. The current `backend/src/sockets/`
-   handlers are intentionally thin stubs (room-join only) — this step
-   replaces them with the real in-memory GameSession/Participant/Answer
-   model per `docs/ARCHITECTURE.md` §2, plus the abuse-resilience pieces
-   in `docs/ARCHITECTURE.md` §11 (rate limiting, per-code lockout) which
-   aren't implemented at all yet.
-5. Implement the podium/results flow. The `ResultsSnapshot` table and its
-   in-process TTL cleanup sweep (`backend/src/db/resultsCleanup.ts`) are
-   already scaffolded; what's missing is actually writing a snapshot at
-   `game:ended` and the results-fetch endpoint/page.
+   (`backend/src/routes/quiz.route.ts` **and** `session.route.ts`) with
+   real Creator auth (email/password or minimal JWT, per
+   `docs/ARCHITECTURE.md` §7) — nothing else should be treated as "real"
+   ownership enforcement until this lands.
+4. ~~Implement the session/game loop~~ Done — see Decision #37.
+   Not yet done within this: reconnect hasn't been tested against an
+   actual dropped connection (only a fresh join was exercised), and the
+   abuse-resilience piece is app-level only — the edge layer (Cloudflare,
+   Turnstile, ARCHITECTURE.md §11) is still unprovisioned infra.
+5. ~~Implement the podium/results flow~~ Done — see Decision #37.
+   Podium/results is API-only so far; there's no frontend page rendering
+   it yet (that's step 2).
 
 If you're an agent starting implementation, confirm with the project
 owner which of these to tackle first rather than assuming — this list is

@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { env } from "./config/env.js";
 import { healthRoutes } from "./routes/health.route.js";
 import { quizRoutes } from "./routes/quiz.route.js";
+import { sessionRoutes } from "./routes/session.route.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -17,6 +18,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(healthRoutes);
   await app.register(quizRoutes);
+  await app.register(sessionRoutes);
 
   return app;
 }

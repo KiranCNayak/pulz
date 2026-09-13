@@ -1,21 +1,9 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import * as sessionService from "../services/session.service.js";
 import { NotFoundError, ValidationError } from "../services/quiz.service.js";
 import * as resultsService from "../services/results.service.js";
 import { ResultsNotFoundError } from "../services/results.service.js";
-
-// Same placeholder identity scheme as quiz.route.ts (Decision #28) — a
-// real Creator-auth-derived identity replaces this at the same time it
-// replaces the one in quiz.route.ts.
-function requireCreatorId(request: FastifyRequest, reply: FastifyReply): string | undefined {
-  const header = request.headers["x-creator-id"];
-  const creatorId = Array.isArray(header) ? header[0] : header;
-  if (!creatorId) {
-    reply.code(401).send({ error: "Missing x-creator-id header (placeholder pending real Creator auth)" });
-    return undefined;
-  }
-  return creatorId;
-}
+import { requireCreatorId } from "./creatorAuth.js";
 
 const resultsQuerySchema = {
   querystring: {
@@ -33,7 +21,7 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
   // Decision #22: this endpoint is explicitly NOT part of the anonymous
   // attack surface, so it gets no extra rate limiting beyond normal auth).
   app.post<{ Params: { id: string } }>("/quizzes/:id/sessions", async (request, reply) => {
-    const creatorId = requireCreatorId(request, reply);
+    const creatorId = await requireCreatorId(request, reply);
     if (!creatorId) return;
     try {
       const session = await sessionService.createGameSession(creatorId, request.params.id);

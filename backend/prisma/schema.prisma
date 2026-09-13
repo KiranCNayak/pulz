@@ -21,9 +21,22 @@ datasource db {
 }
 
 model Creator {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
+  id String @id @default(uuid())
+
+  // Capability-token identity model (Decision #38): a Creator is created
+  // by POST /auth/register with no email/password at all — proof of
+  // identity is holding the bearer token returned exactly once at
+  // registration. Only a SHA-256 hash of that token is stored, so a DB
+  // leak alone doesn't hand out usable credentials.
+  //
+  // `email` and `passwordHash` are kept as optional columns (not used by
+  // any code path yet) so a future passwordless-email upgrade (deferred,
+  // see Decision #38 "Option 2") can attach an email to an existing
+  // Creator without a breaking schema change — not a live login method
+  // today.
+  tokenHash    String   @unique @map("token_hash")
+  email        String?  @unique
+  passwordHash String?  @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
 
   quizzes Quiz[]

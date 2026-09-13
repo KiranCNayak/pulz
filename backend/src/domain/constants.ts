@@ -20,6 +20,17 @@ export function clampTimeLimitSeconds(seconds: number): number {
   );
 }
 
+// --- Creator registration (Decision #38) ---
+
+// POST /auth/register is anonymous by construction (that's the whole
+// point of a login-free capability token), so — unlike other Creator
+// endpoints, which sit behind Decision #22's "already authenticated"
+// exemption — it IS part of the anonymous attack surface and needs its
+// own rate limit against runaway row creation / storage abuse. Loose
+// per-IP window, same shape as the join-attempt limiter.
+export const REGISTER_IP_RATE_LIMIT = 10;
+export const REGISTER_IP_RATE_WINDOW_MS = 60 * 60_000;
+
 // --- Player/Spectator display name (PRD §4.3) ---
 
 export const DISPLAY_NAME_MIN_LENGTH = 1;

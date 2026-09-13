@@ -11,14 +11,21 @@ live scoring, leaderboard rank, and a podium finish.
 
 ## Current status (2026-09-13)
 
-**Backend game loop + results implemented; Creator auth still a
-placeholder; frontend not started.** `backend/` now has, on top of the
-Fastify + Prisma/Postgres skeleton and Creator quiz-CRUD REST endpoints:
+**Backend game loop, results, and Creator identity all implemented;
+frontend not started.** `backend/` now has, on top of the Fastify +
+Prisma/Postgres skeleton and Creator quiz-CRUD REST endpoints:
 
+- **Creator identity is a capability bearer token**, not the old
+  `x-creator-id` header: `POST /auth/register` mints a Creator + a random
+  token (returned once; only its hash is stored), and every Creator-scoped
+  route now requires `Authorization: Bearer <token>`. No password, no
+  email, no OAuth dependency — and no account recovery if the token is
+  lost, which is the accepted trade-off (see Decision #38). Real
+  email/password or OAuth-based auth is still not built and is a
+  deliberately separate, deferred upgrade, not a gap in what's shipped.
 - `POST /quizzes/:id/sessions` — creates a live `GameSession` from a
   saved quiz (snapshotted, so mid-game Creator edits can't change a
-  running game), gated by the same placeholder `x-creator-id` header as
-  quiz CRUD.
+  running game), gated by the same bearer-token auth as quiz CRUD.
 - A full Socket.IO game loop (`backend/src/sockets/session.socket.ts`,
   `services/gameLoop.service.ts`, `services/join.service.ts`): host/
   display auth, join/reconnect (idempotent via participant token),
@@ -33,13 +40,15 @@ Fastify + Prisma/Postgres skeleton and Creator quiz-CRUD REST endpoints:
 - `game:ended` writes a `ResultsSnapshot`; `GET /results/:sessionId`
   reads it back, paginated per PRD §6.
 
-Verified end-to-end against a throwaway local Postgres container: quiz
-creation → session creation → a real Socket.IO client driving a full
-two-question game (join, start, answer, lock/reveal/leaderboard, advance,
-end) → results fetch, plus the join-code lockout behavior. See
-`docs/DECISIONS.md` #25-#37 for the choices made along the way (Prisma,
-folder layout, the temporary `x-creator-id` header, the 2-click state
-machine, code-string-keyed lockout tracking). No frontend code exists
+Verified end-to-end against a throwaway local Postgres container (both
+migrations applied cleanly): register → bearer-token quiz/session
+creation → a real Socket.IO client driving a full two-question game
+(join, start, answer, lock/reveal/leaderboard, advance, end) → results
+fetch, plus the join-code lockout and the `/auth/register` rate limiter,
+both confirmed to trip at their exact configured thresholds. See
+`docs/DECISIONS.md` #25-#38 for the choices made along the way (Prisma,
+folder layout, the 2-click state machine, code-string-keyed lockout
+tracking, the capability-token identity model). No frontend code exists
 yet. Don't assume this summary stays accurate as work continues — verify
 with `ls`/`git log`.
 
@@ -89,20 +98,25 @@ real backend. See `docs/GO_V2_EXPLORATION.md` and Decision #31.
 
 ## Likely next steps (as of this writing)
 
-Backend now has Creator CRUD, session creation, the full game loop, and
-results (see "Current status" above). Natural next steps, roughly in
-order:
+Backend now has Creator CRUD, capability-token Creator auth, session
+creation, the full game loop, and results (see "Current status" above).
+Natural next steps, roughly in order:
 1. ~~Scaffold the backend (Fastify + Socket.IO + Postgres client) per
    `docs/ARCHITECTURE.md`.~~ Done.
 2. Scaffold the frontend (React + Vite) with the route structure from
    `docs/ARCHITECTURE.md` §5. **No frontend code exists yet** — this is
    the biggest remaining gap; the backend has no UI in front of it at
    all right now.
-3. Finish the Creator flow: replace the placeholder `x-creator-id` header
-   (`backend/src/routes/quiz.route.ts` **and** `session.route.ts`) with
-   real Creator auth (email/password or minimal JWT, per
-   `docs/ARCHITECTURE.md` §7) — nothing else should be treated as "real"
-   ownership enforcement until this lands.
+3. ~~Finish the Creator flow~~ Done differently than originally planned —
+   see Decision #38: instead of email/password or JWT auth
+   (`docs/ARCHITECTURE.md` §7, now superseded for the moment), Creator
+   identity is a capability bearer token from `POST /auth/register`, with
+   no email/password/OAuth at all. Deliberately **not** done: any form of
+   account recovery — if a Creator loses their token, their quizzes are
+   unrecoverable by design. Revisit only if the project owner decides
+   recovery/cross-device portability is worth the added infra (a
+   passwordless-email upgrade is the documented option, see Decision
+   #38); don't build it speculatively.
 4. ~~Implement the session/game loop~~ Done — see Decision #37.
    Not yet done within this: reconnect hasn't been tested against an
    actual dropped connection (only a fresh join was exercised), and the

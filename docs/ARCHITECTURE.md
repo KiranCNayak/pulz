@@ -106,9 +106,23 @@ Player/Display/Results views instead of duplicated per app.
 
 ## 7. Auth
 
-- Only the **Creator** role needs an account. Simplest viable option:
-  email + password with a session cookie (or a minimal JWT) — no need for
-  a full OAuth/social-login stack for MVP.
+- Only the **Creator** role needs an account — but **not necessarily a
+  login**. As implemented (Decision #38, superseding the email+password
+  plan originally here): `POST /auth/register` mints a `Creator` row and
+  a random capability bearer token, returned exactly once; only its
+  SHA-256 hash is persisted. Every Creator-scoped route requires
+  `Authorization: Bearer <token>`. No password, no email, no OAuth
+  dependency — same "no full OAuth/social-login stack for MVP" goal this
+  section originally stated, taken one step further by skipping
+  email/password too.
+  - **Accepted trade-off:** no account recovery. A lost token means
+    permanently losing access to that Creator's quizzes; there is no
+    "forgot my token" flow, by design, for MVP.
+  - The `Creator` model keeps `email`/`passwordHash` as nullable columns
+    for a possible future passwordless-email upgrade (verify control of
+    an inbox, mainly for recovery/cross-device portability) — not built,
+    and only worth doing if that trade-off proves to actually matter in
+    practice.
 - Host/Player/Spectator remain account-free per the PRD, identified only
   by session-scoped tokens (host's controller token, display token,
   participant token) — three different opaque tokens per session, not

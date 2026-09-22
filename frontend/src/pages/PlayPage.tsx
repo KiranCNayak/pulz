@@ -20,7 +20,26 @@ type QuestionBroadcast = {
 
 type QuestionReveal = { questionId: string; correctOptionId: string; tally: Record<string, number> }
 type AnswerResult = { isCorrect: boolean; pointsEarned: number; myRank: number; totalPlayers: number }
-type JoinAcceptedPayload = { participantId: string; participantToken: string; role: 'PLAYER' | 'SPECTATOR'; resumed?: boolean }
+
+// Mirrors backend gameLoop.service.ts's buildResumeSnapshot — what a
+// reconnecting client needs to jump straight to the right screen instead
+// of the lobby (ARCHITECTURE.md §6).
+type ResumeState = {
+  status: 'LOBBY' | 'IN_PROGRESS' | 'ENDED'
+  question: (QuestionBroadcast & { phase: 'ACTIVE' | 'LOCKED' }) | null
+  answeredOptionId?: string | null
+  reveal?: QuestionReveal
+  result?: AnswerResult | null
+  resultsUrl?: string
+}
+
+type JoinAcceptedPayload = {
+  participantId: string
+  participantToken: string
+  role: 'PLAYER' | 'SPECTATOR'
+  resumed?: boolean
+  state?: ResumeState
+}
 type JoinErrorPayload = { error: string }
 type PromotionResult = { approved: boolean }
 type GameEnded = { resultsUrl: string }
@@ -52,7 +71,35 @@ export function PlayPage() {
     function onJoinAccepted(payload: JoinAcceptedPayload) {
       setParticipantToken(payload.participantToken)
       setRole(payload.role)
-      setPhase('lobby')
+
+      const state = payload.state
+      if (!state || state.status === 'LOBBY' || !state.question) {
+        setPhase('lobby')
+        return
+      }
+      if (state.status === 'ENDED') {
+        setPhase('ended')
+        if (state.resultsUrl) navigate(state.resultsUrl)
+        return
+      }
+
+      // IN_PROGRESS, mid-question — rehydrate straight into the right
+      // screen instead of showing the lobby (this was the gap: a dropped
+      // connection reconnecting mid-question used to land back in the
+      // lobby with no way to see the active question).
+      setQuestion(state.question)
+      setSelectedOptionId(state.answeredOptionId ?? null)
+      if (state.question.phase === 'ACTIVE') {
+        setPhase('question')
+        return
+      }
+      if (state.reveal) setReveal(state.reveal)
+      if (state.result) {
+        setResult(state.result)
+        setPhase('result')
+      } else {
+        setPhase('locked')
+      }
     }
     function onJoinError(payload: JoinErrorPayload) {
       setError(payload.error)

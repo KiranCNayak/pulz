@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { createQuizAndStartSession, joinAsPlayer } from './helpers'
 
 // End-to-end automation of the manual pass in docs/FRONTEND_PLAN.md:
 // create a quiz -> start a session -> Host/Display/Play in sync ->
@@ -14,45 +15,22 @@ test('full game flow: create, host, play, and view results', async ({ browser })
   // separate real devices would behave.
   const creatorContext = await browser.newContext()
   const creatorPage = await creatorContext.newPage()
-
-  await creatorPage.goto('/create')
-  await creatorPage.getByPlaceholder('Quiz title').fill(quizTitle)
-  await creatorPage.getByPlaceholder('Question text').fill('What is 2 + 2?')
-  await creatorPage.getByPlaceholder('Option 1').fill('3')
-  await creatorPage.getByPlaceholder('Option 2').fill('4')
-  await creatorPage.getByRole('radio', { name: 'Option 2 is correct' }).check()
-  await creatorPage.getByRole('button', { name: 'Create quiz' }).click()
-
-  await expect(creatorPage).toHaveURL(/\/quizzes\/.+\/edit/)
-  await creatorPage.getByRole('button', { name: 'Start session' }).click()
-
-  const sessionBanner = creatorPage.getByText(/Session started — join code: /)
-  await expect(sessionBanner).toBeVisible()
-  const joinCode = (await sessionBanner.textContent())?.match(/join code: (\w+)/)?.[1]
-  expect(joinCode).toBeTruthy()
-
-  const hostHref = await creatorPage.getByRole('link', { name: 'Open Host Controller' }).getAttribute('href')
-  const displayHref = await creatorPage.getByRole('link', { name: 'Open Display' }).getAttribute('href')
-  expect(hostHref).toBeTruthy()
-  expect(displayHref).toBeTruthy()
+  const { joinCode, hostHref, displayHref } = await createQuizAndStartSession(creatorPage, quizTitle)
 
   const hostContext = await browser.newContext()
   const hostPage = await hostContext.newPage()
-  await hostPage.goto(hostHref!)
+  await hostPage.goto(hostHref)
   await expect(hostPage.getByText('Host Controller')).toBeVisible()
   await expect(hostPage.getByText('LOBBY', { exact: true })).toBeVisible()
 
   const displayContext = await browser.newContext()
   const displayPage = await displayContext.newPage()
-  await displayPage.goto(displayHref!)
+  await displayPage.goto(displayHref)
   await expect(displayPage.getByText('Waiting for the host to start the game')).toBeVisible()
 
   const playerContext = await browser.newContext()
   const playerPage = await playerContext.newPage()
-  await playerPage.goto('/join')
-  await playerPage.getByLabel('Join code').fill(joinCode!)
-  await playerPage.getByLabel('Your name').fill(playerName)
-  await playerPage.getByRole('button', { name: 'Join' }).click()
+  await joinAsPlayer(playerPage, joinCode, playerName)
 
   // Realtime lobby update: Host should see the player join.
   await expect(hostPage.getByText(playerName)).toBeVisible()

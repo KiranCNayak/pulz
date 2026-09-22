@@ -49,9 +49,10 @@ fetch, plus the join-code lockout and the `/auth/register` rate limiter,
 both confirmed to trip at their exact configured thresholds. See
 `docs/DECISIONS.md` #25-#38 for the choices made along the way (Prisma,
 folder layout, the 2-click state machine, code-string-keyed lockout
-tracking, the capability-token identity model). No frontend code exists
-yet. Don't assume this summary stays accurate as work continues — verify
-with `ls`/`git log`.
+tracking, the capability-token identity model). The frontend (React +
+Vite SPA) is now fully implemented too — see "Likely next steps" #2 below
+and `docs/FRONTEND_PLAN.md`. Don't assume this summary stays accurate as
+work continues — verify with `ls`/`git log`.
 
 There is also a **`backend-go/`** directory — this is a separate,
 non-shipping performance-exploration module (Go), not an alternative or
@@ -124,13 +125,14 @@ Natural next steps, roughly in order:
    passwordless-email upgrade is the documented option, see Decision
    #38); don't build it speculatively.
 4. ~~Implement the session/game loop~~ Done — see Decision #37.
-   Not yet done within this: reconnect hasn't been tested against an
-   actual dropped connection (only a fresh join was exercised), and the
-   abuse-resilience piece is app-level only — the edge layer (Cloudflare,
-   Turnstile, ARCHITECTURE.md §11) is still unprovisioned infra.
-5. ~~Implement the podium/results flow~~ Done — see Decision #37.
-   Podium/results is API-only so far; there's no frontend page rendering
-   it yet (that's step 2).
+   Reconnect against an actual dropped connection is now tested too (the
+   "page refresh" case, ARCHITECTURE.md §6) — see Decision #53; a pure
+   transport-level drop without a page reload is a narrower, still-open
+   gap (`docs/FRONTEND_PLAN.md`). The abuse-resilience piece is still
+   app-level only — the edge layer (Cloudflare, Turnstile,
+   ARCHITECTURE.md §11) is still unprovisioned infra.
+5. ~~Implement the podium/results flow~~ Done — see Decision #37, and the
+   `/results/:sessionId` frontend page (step 2) renders it.
 
 If you're an agent starting implementation, confirm with the project
 owner which of these to tackle first rather than assuming — this list is

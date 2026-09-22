@@ -121,7 +121,23 @@ items here as they're discovered — don't let this list go stale.
       Display/Player each in their own browser context, run via
       `npm run test:e2e` from `frontend/` against the docker-compose
       stack (which must already be running — the suite doesn't manage
-      that lifecycle). Verified stable across repeated runs.
+      that lifecycle). Runs serially (`workers: 1`, all specs share one
+      backend/DB); `POST /auth/register`'s 10/hour per-IP limit means
+      >5 full-suite runs/hour trips it — restart the backend to reset.
+- [x] Reconnect tested against an actual dropped connection (Decision
+      #53) — CLAUDE.md's flagged gap. `frontend/e2e/reconnect.spec.ts`
+      uses `page.reload()` mid-question and again after lock to simulate
+      the ARCHITECTURE.md §6 "page refresh" scenario. Found and fixed a
+      real bug: reconnecting mid-game landed back on the lobby screen
+      with no question state, and a locked-but-not-yet-reconnected
+      player's `answer:result` was silently lost (targeted a stale
+      `socketId`). Fixed via a `buildResumeSnapshot` attached to
+      `join:accepted`. **Known remaining gap:** only the "page reload"
+      reconnect path is tested/fixed — a pure transport-level drop where
+      Socket.IO auto-reconnects without a page reload doesn't currently
+      re-send `join:request` at all, so that narrower case is still
+      untested and likely still broken. Pick up only if it comes up in
+      practice; not blocking.
 
 ## Status
 
@@ -134,7 +150,10 @@ hand-off via `?token=`, client-side answer color/shape assignment, and the
 `/play/:sessionId` route param actually being the join code). The
 Creator→session hand-off gap is closed, and the full user journey has been
 manually verified end-to-end (2026-09-23) against a real docker-compose
-backend, with one real bug found and fixed (Decision #51), and is now also
-covered by an automated Playwright E2E test (Decision #52). No open items
-remain on this plan; future work is genuinely new scope (polish, more
-quiz-editing features, etc.), not something tracked here as a gap.
+backend, with two real bugs found and fixed along the way (Decision #51's
+Content-Type bug, Decision #53's reconnect-state gap), and is now also
+covered by two automated Playwright E2E tests (Decisions #52-53). No open
+items remain on this plan except the narrow transport-level-reconnect gap
+noted under Decision #53's item above; future work beyond that is
+genuinely new scope (polish, more quiz-editing features, etc.), not
+something tracked here as a gap.

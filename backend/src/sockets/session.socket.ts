@@ -127,6 +127,7 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
             participantToken: existing.token,
             role: existing.role,
             resumed: true,
+            state: gameLoop.buildResumeSnapshot(session, existing),
           });
           io.to(baseRoom(session.id)).emit("session:lobby_update", { participants: lobbyParticipantList(session) });
           return;

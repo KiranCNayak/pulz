@@ -207,3 +207,74 @@ export async function advance(io: Server, session: GameSession): Promise<{ ok: t
   io.to(baseRoom(session.id)).emit("game:ended", { resultsUrl: `/results/${session.id}` });
   return { ok: true };
 }
+
+/**
+ * What a reconnecting Player/Spectator needs to rehydrate mid-game
+ * (ARCHITECTURE.md §6, DESIGN.md §9's originally-open reconnect
+ * question). `join:request`'s reconnect path only re-established the
+ * socket-room membership and re-sent `join:accepted` — a client
+ * reconnecting mid-question had no way to know a question was even
+ * active, and `lockQuestion`'s per-participant `answer:result` targets a
+ * socket id that goes stale across a reconnect, so a player who
+ * disconnects between answering and lock never received their result at
+ * all. This snapshot is attached to `join:accepted` as `state` so the
+ * client can jump straight to the right screen instead of the lobby.
+ */
+export function buildResumeSnapshot(session: GameSession, participant: Participant) {
+  if (session.status === "ENDED") {
+    return { status: session.status, question: null, resultsUrl: `/results/${session.id}` } as const;
+  }
+  if (session.status !== "IN_PROGRESS" || !session.current) {
+    return { status: session.status, question: null } as const;
+  }
+
+  const current = session.current;
+  const questionPayload = {
+    questionId: current.question.id,
+    text: current.question.text,
+    mediaUrl: current.question.mediaUrl,
+    options: publicOptions(current.question, current.optionOrder),
+    timeLimitSeconds: current.question.timeLimitSeconds,
+    serverStartTime: current.broadcastAt,
+    index: current.index,
+    total: session.questions.length,
+    phase: current.phase,
+  };
+
+  const answer = participant.answers.get(current.question.id);
+
+  if (current.phase === "ACTIVE") {
+    return {
+      status: session.status,
+      question: questionPayload,
+      answeredOptionId: answer?.selectedOptionId ?? null,
+    } as const;
+  }
+
+  // LOCKED: also rehydrate the reveal + this participant's own result,
+  // same shape as the live `question:reveal`/`answer:result` events.
+  const correctOption = current.question.options.find((o) => o.isCorrect)!;
+  const tally: Record<string, number> = Object.fromEntries(current.optionOrder.map((id) => [id, 0]));
+  for (const p of session.participants.values()) {
+    const a = p.answers.get(current.question.id);
+    if (a && a.selectedOptionId in tally) tally[a.selectedOptionId]++;
+  }
+  const ranked = rankPlayers(session);
+  const totalPlayers = playerCount(session);
+
+  return {
+    status: session.status,
+    question: questionPayload,
+    answeredOptionId: answer?.selectedOptionId ?? null,
+    reveal: { questionId: current.question.id, correctOptionId: correctOption.id, tally },
+    result:
+      participant.role === "PLAYER"
+        ? {
+            isCorrect: answer?.isCorrect ?? false,
+            pointsEarned: answer?.points ?? 0,
+            myRank: ranked.find((r) => r.participantId === participant.id)?.rank ?? totalPlayers,
+            totalPlayers,
+          }
+        : null,
+  } as const;
+}

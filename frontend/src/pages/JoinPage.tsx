@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -64,9 +65,12 @@ export function JoinPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="fixed top-4 right-4">
+        <ThemeToggle />
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Join a game</CardTitle>
+          <CardTitle className="text-xl">Join a game</CardTitle>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>

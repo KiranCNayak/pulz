@@ -9,10 +9,11 @@ synchronous quiz session, players join from any device via a short join
 code (no account needed), answer on a color/shape button grid, and see
 live scoring, leaderboard rank, and a podium finish.
 
-## Current status (2026-09-13)
+## Current status (2026-09-23)
 
 **Backend game loop, results, and Creator identity all implemented;
-frontend not started.** `backend/` now has, on top of the Fastify +
+frontend foundation is scaffolded, feature views in progress — see
+`docs/FRONTEND_PLAN.md`.** `backend/` now has, on top of the Fastify +
 Prisma/Postgres skeleton and Creator quiz-CRUD REST endpoints:
 
 - **Creator identity is a capability bearer token**, not the old
@@ -103,10 +104,13 @@ creation, the full game loop, and results (see "Current status" above).
 Natural next steps, roughly in order:
 1. ~~Scaffold the backend (Fastify + Socket.IO + Postgres client) per
    `docs/ARCHITECTURE.md`.~~ Done.
-2. Scaffold the frontend (React + Vite) with the route structure from
-   `docs/ARCHITECTURE.md` §5. **No frontend code exists yet** — this is
-   the biggest remaining gap; the backend has no UI in front of it at
-   all right now.
+2. ~~Scaffold the frontend (React + Vite) with the route structure from
+   `docs/ARCHITECTURE.md` §5.~~ Foundation done — see
+   `docs/FRONTEND_PLAN.md` for current status. Routing, Tailwind,
+   shadcn/ui, TanStack Query, the shared Socket.IO client, and Vitest are
+   all wired in `frontend/`; the seven feature views themselves
+   (Creator flows, Host, Display, Join/Play, Results) are still
+   placeholder pages and are the current active work.
 3. ~~Finish the Creator flow~~ Done differently than originally planned —
    see Decision #38: instead of email/password or JWT auth
    (`docs/ARCHITECTURE.md` §7, now superseded for the moment), Creator

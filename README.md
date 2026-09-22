@@ -16,6 +16,9 @@ See:
   settled decisions
 - [`docs/GO_V2_EXPLORATION.md`](docs/GO_V2_EXPLORATION.md) — scope of the
   `backend-go/` performance exploration (not the MVP backend)
+- [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) — **current work in
+  progress:** frontend plan, open design decisions, and progress checklist.
+  Start here to continue the active work.
 
 ## Layout
 
@@ -25,7 +28,12 @@ See:
 - [`backend-go/`](backend-go/) — **not** the MVP backend. A separate,
   low-priority Go performance-exploration module; see
   `docs/GO_V2_EXPLORATION.md`.
-- `frontend/` — not started yet.
+- [`frontend/`](frontend/) — React + Vite SPA. Foundation (routing,
+  Tailwind, shadcn/ui, TanStack Query, shared Socket.IO client, Vitest)
+  is scaffolded; the seven feature views are still placeholders. See
+  `docs/FRONTEND_PLAN.md`.
 
-**Status:** MVP backend scaffolding in progress; frontend not started.
-See `CLAUDE.md` for the up-to-date picture.
+**Status:** MVP backend implemented and verified end-to-end; frontend
+foundation is scaffolded and the feature views are in progress — see
+`docs/FRONTEND_PLAN.md` for the plan and progress, and `CLAUDE.md` for the
+full up-to-date picture.

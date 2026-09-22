@@ -1,10 +1,11 @@
 # Frontend Plan & Progress
 
 Living tracker for the frontend build-out (CLAUDE.md "Likely next steps" #2).
-**All seven routes now have real implementations, not placeholders.** The
-biggest remaining gap is that no UI yet actually *creates* a session and
-hands off to Host/Display — see "Open gap" below. If you're an agent
-picking this up cold:
+**All seven routes have real implementations, and the Creator flow now
+starts sessions and links to Host/Display.** The full user journey
+(create quiz → start session → host runs it → players join/play → results)
+has not yet been exercised end-to-end against a real backend — see "Work
+breakdown" below for what's left. If you're an agent picking this up cold:
 
 1. Read `CLAUDE.md` first for overall project orientation.
 2. Read `docs/PRD.md` (user flows, roles) and `docs/DESIGN.md` (state
@@ -86,18 +87,19 @@ items here as they're discovered — don't let this list go stale.
 - [x] Shared `frontend/src/components/answerStyles.ts` added (client-side
       slot→color/shape mapping, Decision #48) and both Play and Display
       consolidated onto it.
-- [ ] **Open gap — Creator → session hand-off.** Nothing in the frontend
-      yet calls `POST /quizzes/:id/sessions` or links a Creator from
-      `/quizzes/:id/edit` to `/host/:sessionId?token=...` /
-      `/display/:sessionId?token=...`. Right now Host/Display can only be
-      reached by hand-constructing the URL with a token captured some
-      other way (e.g. from a manual API call). This is the next real
-      piece of work — a "Start session" action on the Edit Quiz page that
-      creates the session and surfaces both links (and the join code).
+- [x] Creator → session hand-off: a "Start session" action on
+      `/quizzes/:id/edit` (`StartSessionPanel` in `EditQuizPage.tsx`)
+      calls `POST /quizzes/:id/sessions` via a new `useCreateSession`
+      hook, then shows the join code and links to
+      `/host/:sessionId?token=<hostToken>` and
+      `/display/:sessionId?token=<displayToken>` (opened in new tabs).
+      Tokens are held only in that component's state, never persisted —
+      they're one-shot per Decision #47.
 - [ ] End-to-end manual pass: create a quiz, start a session, run it with
       a real host + multiple player clients across Host/Display/Play/
       Results, confirm scoring/leaderboard/podium match
-      backend-authoritative results. Blocked on the gap above.
+      backend-authoritative results. This still needs a live backend
+      (Postgres) running locally — hasn't been exercised yet.
 
 ## Status
 
@@ -108,4 +110,5 @@ and again after the final consolidation). See Decisions #47-49 for the
 interim/gap items that surfaced during that work (host/display token
 hand-off via `?token=`, client-side answer color/shape assignment, and the
 `/play/:sessionId` route param actually being the join code). The
-Creator→session hand-off gap above is the next thing to pick up.
+Creator→session hand-off gap is now closed (2026-09-23) — the only
+remaining item is the end-to-end manual pass against a live backend.

@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { QuizQuestionForm } from '@/components/QuizQuestionForm'
 import { Button } from '@/components/ui/button'
 import {
   useAddQuestion,
+  useCreateSession,
   useDeleteQuestion,
   useQuiz,
   useUpdateQuestion,
@@ -11,7 +12,7 @@ import {
 } from '@/hooks/useQuiz'
 import { QUESTION_TIME_LIMIT_DEFAULT_SECONDS } from '@/lib/quizConstants'
 import { isQuestionValid } from '@/lib/quizValidation'
-import type { Question, QuestionInput, Quiz } from '@/types/quiz'
+import type { GameSession, Question, QuestionInput, Quiz } from '@/types/quiz'
 
 function toQuestionInput(question: Question): QuestionInput {
   return {
@@ -53,6 +54,64 @@ function ExistingQuestionEditor({ quizId, question }: { quizId: string; question
   )
 }
 
+// Session tokens (hostToken/displayToken) are returned exactly once by
+// POST /quizzes/:id/sessions (Decision #47) — held only in this
+// component's state, not persisted, since there's no way to fetch them
+// again after this render.
+function StartSessionPanel({ quizId, canStart }: { quizId: string; canStart: boolean }) {
+  const createSession = useCreateSession(quizId)
+  const [session, setSession] = useState<GameSession | null>(null)
+
+  if (session) {
+    return (
+      <div className="space-y-2 rounded border bg-muted/40 p-4">
+        <p className="font-medium">
+          Session started — join code: <span className="font-mono text-lg">{session.joinCode}</span>
+        </p>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            render={
+              <Link to={`/host/${session.sessionId}?token=${session.hostToken}`} target="_blank" rel="noreferrer" />
+            }
+          >
+            Open Host Controller
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            render={
+              <Link
+                to={`/display/${session.sessionId}?token=${session.displayToken}`}
+                target="_blank"
+                rel="noreferrer"
+              />
+            }
+          >
+            Open Display
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <Button
+        type="button"
+        disabled={!canStart || createSession.isPending}
+        onClick={() => createSession.mutate(undefined, { onSuccess: setSession })}
+      >
+        {createSession.isPending ? 'Starting…' : 'Start session'}
+      </Button>
+      {!canStart && <p className="text-sm text-muted-foreground">Add at least one question first.</p>}
+      {createSession.isError && (
+        <p className="text-destructive text-sm">{(createSession.error as Error).message}</p>
+      )}
+    </div>
+  )
+}
+
 // Keyed by quiz.id from the parent so a lazy initializer (not an effect)
 // re-derives local edit state whenever a different quiz loads.
 function QuizEditorForm({ quiz }: { quiz: Quiz }) {
@@ -63,6 +122,8 @@ function QuizEditorForm({ quiz }: { quiz: Quiz }) {
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <h1 className="text-2xl font-bold">Edit quiz</h1>
+
+      <StartSessionPanel quizId={quiz.id} canStart={quiz.questions.length > 0} />
 
       <div className="flex gap-2">
         <input

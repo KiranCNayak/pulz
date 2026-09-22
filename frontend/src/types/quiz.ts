@@ -44,3 +44,15 @@ export type CreateQuizInput = {
   coverImage?: string | null
   questions: QuestionInput[]
 }
+
+// Mirrors the response of POST /quizzes/:id/sessions
+// (backend/src/routes/session.route.ts). hostToken/displayToken are
+// returned exactly once (Decision #47) — the caller must hold onto them.
+export type GameSession = {
+  sessionId: string
+  joinCode: string
+  hostToken: string
+  displayToken: string
+  status: 'LOBBY' | 'IN_PROGRESS' | 'ENDED'
+  questionCount: number
+}

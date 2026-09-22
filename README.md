@@ -29,12 +29,11 @@ See:
   low-priority Go performance-exploration module; see
   `docs/GO_V2_EXPLORATION.md`.
 - [`frontend/`](frontend/) — React + Vite SPA. All seven routes (Creator
-  flows, Host, Display, Join/Play, Results) are implemented; the
-  Creator→session hand-off (starting a session and linking to Host/
-  Display) is the next open gap. See `docs/FRONTEND_PLAN.md`.
+  flows, Host, Display, Join/Play, Results) are implemented, including the
+  Creator→session hand-off. Not yet exercised end-to-end against a live
+  backend. See `docs/FRONTEND_PLAN.md`.
 
 **Status:** MVP backend implemented and verified end-to-end; frontend's
-seven feature views are all implemented, with one open gap (Creator flow
-doesn't yet start a session/link to Host/Display) — see
-`docs/FRONTEND_PLAN.md` for the plan and progress, and `CLAUDE.md` for the
-full up-to-date picture.
+seven feature views and the Creator→session hand-off are all implemented —
+see `docs/FRONTEND_PLAN.md` for the plan and progress, and `CLAUDE.md` for
+the full up-to-date picture.

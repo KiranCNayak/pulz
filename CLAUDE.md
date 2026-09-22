@@ -105,13 +105,11 @@ Natural next steps, roughly in order:
 1. ~~Scaffold the backend (Fastify + Socket.IO + Postgres client) per
    `docs/ARCHITECTURE.md`.~~ Done.
 2. ~~Scaffold the frontend (React + Vite) with the route structure from
-   `docs/ARCHITECTURE.md` §5.~~ Done, and all seven feature views
-   (Creator flows, Host, Display, Join/Play, Results) are now
-   implemented too — see `docs/FRONTEND_PLAN.md` for current status and
-   Decisions #39-49. **Open gap:** nothing yet calls
-   `POST /quizzes/:id/sessions` from the UI or links a Creator to
-   `/host/:sessionId`/`/display/:sessionId` — see `docs/FRONTEND_PLAN.md`
-   for what that next piece of work looks like.
+   `docs/ARCHITECTURE.md` §5.~~ Done, all seven feature views (Creator
+   flows, Host, Display, Join/Play, Results) are implemented, and the
+   Creator flow now starts a session and links to Host/Display — see
+   `docs/FRONTEND_PLAN.md` for current status and Decisions #39-49. Not
+   yet exercised end-to-end against a live backend.
 3. ~~Finish the Creator flow~~ Done differently than originally planned —
    see Decision #38: instead of email/password or JWT auth
    (`docs/ARCHITECTURE.md` §7, now superseded for the moment), Creator

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
-import type { CreateQuizInput, Question, QuestionInput, Quiz } from '@/types/quiz'
+import type { CreateQuizInput, GameSession, Question, QuestionInput, Quiz } from '@/types/quiz'
 
 const quizKey = (quizId: string) => ['quiz', quizId] as const
 
@@ -58,5 +58,14 @@ export function useDeleteQuestion(quizId: string) {
     mutationFn: (questionId: string) =>
       apiFetch<void>(`/quizzes/${quizId}/questions/${questionId}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: quizKey(quizId) }),
+  })
+}
+
+// Starts a live session from this quiz (Decision #47's ?token= hand-off
+// consumes sessionId/hostToken/displayToken from here). No caching needed
+// — this is a one-shot action, not something re-fetched/invalidated.
+export function useCreateSession(quizId: string) {
+  return useMutation({
+    mutationFn: () => apiFetch<GameSession>(`/quizzes/${quizId}/sessions`, { method: 'POST' }),
   })
 }

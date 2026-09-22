@@ -1,9 +1,10 @@
 # Frontend Plan & Progress
 
 Living tracker for the frontend build-out (CLAUDE.md "Likely next steps" #2).
-**Foundation is scaffolded (routing/providers/shared modules); the seven
-feature views are all still placeholder pages.** If you're an agent picking
-this up cold:
+**All seven routes now have real implementations, not placeholders.** The
+biggest remaining gap is that no UI yet actually *creates* a session and
+hands off to Host/Display — see "Open gap" below. If you're an agent
+picking this up cold:
 
 1. Read `CLAUDE.md` first for overall project orientation.
 2. Read `docs/PRD.md` (user flows, roles) and `docs/DESIGN.md` (state
@@ -63,33 +64,48 @@ items here as they're discovered — don't let this list go stale.
       `src/components/AnswerGrid.tsx` and `src/components/Podium.tsx`
       (shared cross-view components, unstyled beyond basic Tailwind
       layout), `src/lib/queryClient.ts` (TanStack Query client).
-- [ ] Creator flows: `/create`, `/quizzes/:id/edit` (bearer-token auth
-      against the existing Creator CRUD API). **Independent of the
-      other feature views below — safe to parallelize.**
-- [ ] Host controller view: `/host/:sessionId`. **Independent of the
-      other feature views below — safe to parallelize.**
-- [ ] Display/cast view: `/display/:sessionId` (read-only, safe to
-      project publicly). **Independent of the other feature views
-      below — safe to parallelize.**
-- [ ] Join + Player/Spectator gameplay: `/join` → `/play/:sessionId`,
-      building out `AnswerGrid`. **Independent of the other feature
-      views below — safe to parallelize.**
-- [ ] Results/podium page: `/results/:sessionId`, backed by the
-      existing `GET /results/:sessionId` API, building out `Podium`.
-      **Independent of the other feature views above — safe to
-      parallelize.**
-- [ ] End-to-end manual pass: create a quiz, run a session with a real
-      host + multiple player clients, confirm scoring/leaderboard/podium
-      match backend-authoritative results. **Do this last, after the
-      five feature views above have all landed.**
+- [x] Creator flows: `/create` (register-if-needed + build a quiz) and
+      `/quizzes/:id/edit` (load/edit title, questions, options) against
+      the existing Creator CRUD API via TanStack Query. Bearer token
+      stored under `pulz:creatorToken` (`frontend/src/lib/creatorAuth.ts`).
+- [x] Host controller view: `/host/:sessionId?token=<hostToken>` (manual
+      paste fallback if the token isn't in the URL — Decision #47). Full
+      lobby → question → lock/reveal/leaderboard → next/end flow per the
+      2-click state machine (Decision #33), plus spectator-promotion
+      approve/deny.
+- [x] Display/cast view: `/display/:sessionId?token=<displayToken>`
+      (Decision #47) — read-only, large-format, no click handlers,
+      subscribes to the same event stream as Host.
+- [x] Join + Player/Spectator gameplay: `/join` → `/play/:sessionId`
+      (route param is actually the join code, not the real session UUID
+      — Decision #49). Full lobby → question → answer → result → ended
+      flow, own-rank-only display, spectator promotion request.
+- [x] Results/podium page: `/results/:sessionId`, paginated (ranks 4+),
+      graceful expired/missing-snapshot state, `Podium` widened to
+      support tied ranks.
+- [x] Shared `frontend/src/components/answerStyles.ts` added (client-side
+      slot→color/shape mapping, Decision #48) and both Play and Display
+      consolidated onto it.
+- [ ] **Open gap — Creator → session hand-off.** Nothing in the frontend
+      yet calls `POST /quizzes/:id/sessions` or links a Creator from
+      `/quizzes/:id/edit` to `/host/:sessionId?token=...` /
+      `/display/:sessionId?token=...`. Right now Host/Display can only be
+      reached by hand-constructing the URL with a token captured some
+      other way (e.g. from a manual API call). This is the next real
+      piece of work — a "Start session" action on the Edit Quiz page that
+      creates the session and surfaces both links (and the join code).
+- [ ] End-to-end manual pass: create a quiz, start a session, run it with
+      a real host + multiple player clients across Host/Display/Play/
+      Results, confirm scoring/leaderboard/podium match
+      backend-authoritative results. Blocked on the gap above.
 
 ## Status
 
-Foundation scaffolded (2026-09-23): Vite + React + TypeScript, Tailwind,
-shadcn/ui, React Router, TanStack Query, Socket.IO client, and Vitest are
-all wired together and verified (`npm run build` / `npm run test` /
-`npx oxlint` all pass). The five feature-view items above are independent
-of each other (each touches its own route/page file plus, at most, the
-already-created shared modules) and are being picked up in parallel by
-separate agents — check each item's own commit history for current status
-rather than assuming this file is perfectly in sync.
+Foundation scaffolded and all seven routes implemented (2026-09-23), built
+via five parallel agents each in its own git worktree, then merged
+sequentially into `main` (build/lint/test verified clean after each merge
+and again after the final consolidation). See Decisions #47-49 for the
+interim/gap items that surfaced during that work (host/display token
+hand-off via `?token=`, client-side answer color/shape assignment, and the
+`/play/:sessionId` route param actually being the join code). The
+Creator→session hand-off gap above is the next thing to pick up.

@@ -105,12 +105,13 @@ Natural next steps, roughly in order:
 1. ~~Scaffold the backend (Fastify + Socket.IO + Postgres client) per
    `docs/ARCHITECTURE.md`.~~ Done.
 2. ~~Scaffold the frontend (React + Vite) with the route structure from
-   `docs/ARCHITECTURE.md` §5.~~ Foundation done — see
-   `docs/FRONTEND_PLAN.md` for current status. Routing, Tailwind,
-   shadcn/ui, TanStack Query, the shared Socket.IO client, and Vitest are
-   all wired in `frontend/`; the seven feature views themselves
-   (Creator flows, Host, Display, Join/Play, Results) are still
-   placeholder pages and are the current active work.
+   `docs/ARCHITECTURE.md` §5.~~ Done, and all seven feature views
+   (Creator flows, Host, Display, Join/Play, Results) are now
+   implemented too — see `docs/FRONTEND_PLAN.md` for current status and
+   Decisions #39-49. **Open gap:** nothing yet calls
+   `POST /quizzes/:id/sessions` from the UI or links a Creator to
+   `/host/:sessionId`/`/display/:sessionId` — see `docs/FRONTEND_PLAN.md`
+   for what that next piece of work looks like.
 3. ~~Finish the Creator flow~~ Done differently than originally planned —
    see Decision #38: instead of email/password or JWT auth
    (`docs/ARCHITECTURE.md` §7, now superseded for the moment), Creator

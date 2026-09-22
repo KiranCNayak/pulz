@@ -28,12 +28,13 @@ See:
 - [`backend-go/`](backend-go/) — **not** the MVP backend. A separate,
   low-priority Go performance-exploration module; see
   `docs/GO_V2_EXPLORATION.md`.
-- [`frontend/`](frontend/) — React + Vite SPA. Foundation (routing,
-  Tailwind, shadcn/ui, TanStack Query, shared Socket.IO client, Vitest)
-  is scaffolded; the seven feature views are still placeholders. See
-  `docs/FRONTEND_PLAN.md`.
+- [`frontend/`](frontend/) — React + Vite SPA. All seven routes (Creator
+  flows, Host, Display, Join/Play, Results) are implemented; the
+  Creator→session hand-off (starting a session and linking to Host/
+  Display) is the next open gap. See `docs/FRONTEND_PLAN.md`.
 
-**Status:** MVP backend implemented and verified end-to-end; frontend
-foundation is scaffolded and the feature views are in progress — see
+**Status:** MVP backend implemented and verified end-to-end; frontend's
+seven feature views are all implemented, with one open gap (Creator flow
+doesn't yet start a session/link to Host/Display) — see
 `docs/FRONTEND_PLAN.md` for the plan and progress, and `CLAUDE.md` for the
 full up-to-date picture.

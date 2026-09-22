@@ -45,3 +45,25 @@ run the stack locally, and `CLAUDE.md` for the full up-to-date picture.
 backend, and the frontend together. With that running,
 `cd frontend && npm run test:e2e` runs the E2E suite — see
 `docs/FRONTEND_PLAN.md` for details.
+
+## Screenshots
+
+| Create | Create (dark mode) |
+| --- | --- |
+| ![Create a quiz](docs/screenshots/create.jpg) | ![Create a quiz in dark mode](docs/screenshots/create-dark.jpg) |
+
+| Edit + start session |
+| --- |
+| ![Edit quiz with a live session](docs/screenshots/edit.jpg) |
+
+| Join | Host controller |
+| --- | --- |
+| ![Join a game](docs/screenshots/join.jpg) | ![Host controller](docs/screenshots/host.jpg) |
+
+| Display (cast) | Play |
+| --- | --- |
+| ![Display view](docs/screenshots/display.jpg) | ![Player answering a question](docs/screenshots/play.jpg) |
+
+| Results |
+| --- |
+| ![Final results podium](docs/screenshots/results.jpg) |

@@ -138,6 +138,22 @@ items here as they're discovered — don't let this list go stale.
       re-send `join:request` at all, so that narrower case is still
       untested and likely still broken. Pick up only if it comes up in
       practice; not blocking.
+- [x] Creator flow visual polish (Decision #54): `/create`, `/quizzes/:id/edit`,
+      and `QuizQuestionForm` redesigned in place (proper Label/Input/Card
+      structure, shadcn `radio-group` for the correct-answer selector,
+      lucide icons, numbered question headers, a highlighted session-live
+      panel with copy-join-code). Purely visual — functionality unchanged,
+      re-verified via build/lint/unit/E2E after the change. Broke a few
+      placeholder-text-based test/E2E selectors when copy changed; fixed
+      by switching to label-based queries (more resilient going forward).
+- [x] Dark mode (Decision #55): `useTheme` hook + `ThemeToggle` button,
+      toggling the `.dark` class shadcn's already-generated dark theme
+      tokens key off. Rendered only on the Creator flow pages for now
+      (Create/Edit) — not on gameplay screens (Host/Display/Play), to
+      avoid clutter during a live session. Fixed a few pre-existing
+      hardcoded gray/red Tailwind classes on Host/Join/Play pages that
+      would otherwise look wrong once dark mode existed anywhere in the
+      app.
 
 ## Status
 
@@ -151,9 +167,11 @@ hand-off via `?token=`, client-side answer color/shape assignment, and the
 Creator→session hand-off gap is closed, and the full user journey has been
 manually verified end-to-end (2026-09-23) against a real docker-compose
 backend, with two real bugs found and fixed along the way (Decision #51's
-Content-Type bug, Decision #53's reconnect-state gap), and is now also
-covered by two automated Playwright E2E tests (Decisions #52-53). No open
-items remain on this plan except the narrow transport-level-reconnect gap
-noted under Decision #53's item above; future work beyond that is
-genuinely new scope (polish, more quiz-editing features, etc.), not
-something tracked here as a gap.
+Content-Type bug, Decision #53's reconnect-state gap), and is covered by
+two automated Playwright E2E tests (Decisions #52-53). The Creator flow
+has also had a visual polish pass and dark mode support added (Decisions
+#54-55). No open items remain on this plan except the narrow
+transport-level-reconnect gap noted under Decision #53's item above;
+future work beyond that is genuinely new scope (more polish, more
+quiz-editing features, extending dark mode/redesign to the gameplay
+screens, etc.), not something tracked here as a gap.

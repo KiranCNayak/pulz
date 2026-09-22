@@ -30,10 +30,10 @@ describe('CreateQuizPage', () => {
     const submit = screen.getByRole('button', { name: /create quiz/i })
     expect(submit).toBeDisabled()
 
-    fireEvent.change(screen.getByPlaceholderText('Quiz title'), {
+    fireEvent.change(screen.getByLabelText('Quiz title'), {
       target: { value: 'General Knowledge' },
     })
-    fireEvent.change(screen.getByPlaceholderText('Question text'), {
+    fireEvent.change(screen.getByLabelText('Question 1'), {
       target: { value: 'What is 2 + 2?' },
     })
     fireEvent.change(screen.getByPlaceholderText('Option 1'), { target: { value: '3' } })
@@ -59,10 +59,10 @@ describe('CreateQuizPage', () => {
 
     renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('Quiz title'), {
+    fireEvent.change(screen.getByLabelText('Quiz title'), {
       target: { value: 'General Knowledge' },
     })
-    fireEvent.change(screen.getByPlaceholderText('Question text'), {
+    fireEvent.change(screen.getByLabelText('Question 1'), {
       target: { value: 'What is 2 + 2?' },
     })
     fireEvent.change(screen.getByPlaceholderText('Option 1'), { target: { value: '3' } })

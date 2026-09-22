@@ -1,7 +1,11 @@
+import { Check, Copy, ExternalLink, Plus, Rocket } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { QuizQuestionForm } from '@/components/QuizQuestionForm'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   useAddQuestion,
   useCreateSession,
@@ -23,15 +27,15 @@ function toQuestionInput(question: Question): QuestionInput {
   }
 }
 
-function ExistingQuestionEditor({ quizId, question }: { quizId: string; question: Question }) {
+function ExistingQuestionEditor({ quizId, question, index }: { quizId: string; question: Question; index: number }) {
   const [draft, setDraft] = useState<QuestionInput>(() => toQuestionInput(question))
   const updateQuestion = useUpdateQuestion(quizId)
   const deleteQuestion = useDeleteQuestion(quizId)
 
   return (
     <div className="space-y-2">
-      <QuizQuestionForm value={draft} onChange={setDraft} />
-      <div className="flex gap-2">
+      <QuizQuestionForm index={index} value={draft} onChange={setDraft} />
+      <div className="flex gap-2 px-1">
         <Button
           type="button"
           size="sm"
@@ -42,8 +46,9 @@ function ExistingQuestionEditor({ quizId, question }: { quizId: string; question
         </Button>
         <Button
           type="button"
-          variant="destructive"
+          variant="ghost"
           size="sm"
+          className="text-muted-foreground hover:text-destructive"
           disabled={deleteQuestion.isPending}
           onClick={() => deleteQuestion.mutate(question.id)}
         >
@@ -61,13 +66,30 @@ function ExistingQuestionEditor({ quizId, question }: { quizId: string; question
 function StartSessionPanel({ quizId, canStart }: { quizId: string; canStart: boolean }) {
   const createSession = useCreateSession(quizId)
   const [session, setSession] = useState<GameSession | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const copyJoinCode = async () => {
+    if (!session) return
+    await navigator.clipboard.writeText(session.joinCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
 
   if (session) {
     return (
-      <div className="space-y-2 rounded border bg-muted/40 p-4">
-        <p className="font-medium">
-          Session started — join code: <span className="font-mono text-lg">{session.joinCode}</span>
-        </p>
+      <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-muted-foreground">Session is live — join code</p>
+            <p data-testid="session-join-code" className="font-mono text-2xl font-semibold tracking-widest">
+              {session.joinCode}
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={copyJoinCode}>
+            {copied ? <Check /> : <Copy />}
+            {copied ? 'Copied' : 'Copy code'}
+          </Button>
+        </div>
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -75,7 +97,7 @@ function StartSessionPanel({ quizId, canStart }: { quizId: string; canStart: boo
               <Link to={`/host/${session.sessionId}?token=${session.hostToken}`} target="_blank" rel="noreferrer" />
             }
           >
-            Open Host Controller
+            <ExternalLink /> Open Host Controller
           </Button>
           <Button
             size="sm"
@@ -88,7 +110,7 @@ function StartSessionPanel({ quizId, canStart }: { quizId: string; canStart: boo
               />
             }
           >
-            Open Display
+            <ExternalLink /> Open Display
           </Button>
         </div>
       </div>
@@ -102,7 +124,7 @@ function StartSessionPanel({ quizId, canStart }: { quizId: string; canStart: boo
         disabled={!canStart || createSession.isPending}
         onClick={() => createSession.mutate(undefined, { onSuccess: setSession })}
       >
-        {createSession.isPending ? 'Starting…' : 'Start session'}
+        <Rocket /> {createSession.isPending ? 'Starting…' : 'Start session'}
       </Button>
       {!canStart && <p className="text-sm text-muted-foreground">Add at least one question first.</p>}
       {createSession.isError && (
@@ -120,29 +142,34 @@ function QuizEditorForm({ quiz }: { quiz: Quiz }) {
   const [title, setTitle] = useState(() => quiz.title)
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6">
-      <h1 className="text-2xl font-bold">Edit quiz</h1>
+    <div className="mx-auto max-w-2xl space-y-8 px-6 py-10">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1.5">
+          <h1 className="text-3xl font-semibold tracking-tight">Edit quiz</h1>
+          <p className="text-muted-foreground">Update the title and questions, then start a live session.</p>
+        </div>
+        <ThemeToggle />
+      </div>
 
       <StartSessionPanel quizId={quiz.id} canStart={quiz.questions.length > 0} />
 
-      <div className="flex gap-2">
-        <input
-          className="flex-1 rounded border px-3 py-2"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <Button
-          type="button"
-          disabled={title.trim().length === 0 || updateTitle.isPending}
-          onClick={() => updateTitle.mutate(title)}
-        >
-          Save title
-        </Button>
+      <div className="space-y-1.5 border-t border-border pt-6">
+        <Label htmlFor="quiz-title">Quiz title</Label>
+        <div className="flex gap-2">
+          <Input id="quiz-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Button
+            type="button"
+            disabled={title.trim().length === 0 || updateTitle.isPending}
+            onClick={() => updateTitle.mutate(title)}
+          >
+            Save title
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4">
-        {quiz.questions.map((question) => (
-          <ExistingQuestionEditor key={question.id} quizId={quiz.id} question={question} />
+        {quiz.questions.map((question, index) => (
+          <ExistingQuestionEditor key={question.id} quizId={quiz.id} question={question} index={index} />
         ))}
       </div>
 
@@ -161,7 +188,7 @@ function QuizEditorForm({ quiz }: { quiz: Quiz }) {
           })
         }
       >
-        Add question
+        <Plus /> Add question
       </Button>
     </div>
   )
@@ -174,8 +201,8 @@ export function EditQuizPage() {
   const { quizId } = useParams<{ quizId: string }>()
   const { data: quiz, isLoading, isError, error } = useQuiz(quizId)
 
-  if (isLoading) return <div className="p-6">Loading…</div>
-  if (isError) return <div className="p-6 text-destructive">{(error as Error).message}</div>
+  if (isLoading) return <div className="p-10 text-center text-muted-foreground">Loading…</div>
+  if (isError) return <div className="p-10 text-center text-destructive">{(error as Error).message}</div>
   if (!quiz) return null
 
   return <QuizEditorForm key={quiz.id} quiz={quiz} />

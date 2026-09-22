@@ -5,19 +5,23 @@ export async function createQuizAndStartSession(
   quizTitle: string,
 ): Promise<{ joinCode: string; hostHref: string; displayHref: string }> {
   await creatorPage.goto('/create')
-  await creatorPage.getByPlaceholder('Quiz title').fill(quizTitle)
-  await creatorPage.getByPlaceholder('Question text').fill('What is 2 + 2?')
+  await creatorPage.getByLabel('Quiz title').fill(quizTitle)
+  await creatorPage.getByLabel('Question 1').fill('What is 2 + 2?')
   await creatorPage.getByPlaceholder('Option 1').fill('3')
   await creatorPage.getByPlaceholder('Option 2').fill('4')
-  await creatorPage.getByRole('radio', { name: 'Option 2 is correct' }).check()
+  // .click() rather than .check(): the radio is a custom base-ui
+  // component (frontend/src/components/ui/radio-group.tsx), not a native
+  // <input type="radio">, and Playwright's .check() proved unreliable
+  // against it in practice.
+  await creatorPage.getByRole('radio', { name: 'Option 2 is correct' }).click()
   await creatorPage.getByRole('button', { name: 'Create quiz' }).click()
 
   await expect(creatorPage).toHaveURL(/\/quizzes\/.+\/edit/)
   await creatorPage.getByRole('button', { name: 'Start session' }).click()
 
-  const sessionBanner = creatorPage.getByText(/Session started — join code: /)
-  await expect(sessionBanner).toBeVisible()
-  const joinCode = (await sessionBanner.textContent())?.match(/join code: (\w+)/)?.[1]
+  const joinCodeLocator = creatorPage.getByTestId('session-join-code')
+  await expect(joinCodeLocator).toBeVisible()
+  const joinCode = await joinCodeLocator.textContent()
   if (!joinCode) throw new Error('join code not found on Edit Quiz page')
 
   const hostHref = await creatorPage.getByRole('link', { name: 'Open Host Controller' }).getAttribute('href')

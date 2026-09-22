@@ -132,10 +132,10 @@ export function HostPage() {
     return (
       <div className="mx-auto max-w-sm p-6">
         <h1 className="mb-2 text-xl font-semibold">Host session {sessionId}</h1>
-        <p className="mb-4 text-sm text-gray-600">
+        <p className="mb-4 text-sm text-muted-foreground">
           Paste the host token from session creation to control this game.
         </p>
-        {authError && <p className="mb-2 text-sm text-red-600">{authError}</p>}
+        {authError && <p className="mb-2 text-sm text-destructive">{authError}</p>}
         <div className="flex gap-2">
           <input
             className="flex-1 rounded border px-3 py-2"
@@ -167,14 +167,14 @@ export function HostPage() {
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Host Controller</h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Join code: <span className="font-mono text-lg font-bold">{snapshot.joinCode}</span>
           </p>
         </div>
-        <span className="rounded bg-gray-100 px-2 py-1 text-sm">{snapshot.status}</span>
+        <span className="rounded bg-muted px-2 py-1 text-sm">{snapshot.status}</span>
       </header>
 
-      {actionError && <p className="text-sm text-red-600">{actionError}</p>}
+      {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
       {snapshot.status === 'LOBBY' && (
         <section className="space-y-3">

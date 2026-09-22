@@ -14,6 +14,6 @@ describe('App', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByText(/Join — not implemented yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/Join a game/i)).toBeInTheDocument()
   })
 })

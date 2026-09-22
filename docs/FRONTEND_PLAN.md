@@ -1,11 +1,11 @@
 # Frontend Plan & Progress
 
 Living tracker for the frontend build-out (CLAUDE.md "Likely next steps" #2).
-**All seven routes have real implementations, and the Creator flow now
-starts sessions and links to Host/Display.** The full user journey
-(create quiz → start session → host runs it → players join/play → results)
-has not yet been exercised end-to-end against a real backend — see "Work
-breakdown" below for what's left. If you're an agent picking this up cold:
+**The full user journey (create quiz → start session → host runs it →
+players join/play → results) has been manually verified end-to-end**
+against a live backend via `docker compose up` (Decision #50) and Claude
+in Chrome. E2E test automation is the remaining item — see "Work
+breakdown" below. If you're an agent picking this up cold:
 
 1. Read `CLAUDE.md` first for overall project orientation.
 2. Read `docs/PRD.md` (user flows, roles) and `docs/DESIGN.md` (state
@@ -43,6 +43,15 @@ explicit instruction:
 - **Scaffolding tool:** `npm create vite@latest` (react-ts template).
 
 No open frontend stack decisions remain at this point.
+
+## Local dev environment
+
+`docker compose up --build` from the repo root (Decision #50) brings up
+Postgres, the backend (migrations run automatically, then `tsx watch`),
+and the frontend (`vite --host 0.0.0.0`) each in their own container, with
+the repo bind-mounted for live reload. Frontend: `http://localhost:5173`.
+Backend: `http://localhost:3000`. This is dev-only — not a production
+deployment manifest (see the comment at the top of `docker-compose.yml`).
 
 ## Work breakdown
 
@@ -95,11 +104,20 @@ items here as they're discovered — don't let this list go stale.
       `/display/:sessionId?token=<displayToken>` (opened in new tabs).
       Tokens are held only in that component's state, never persisted —
       they're one-shot per Decision #47.
-- [ ] End-to-end manual pass: create a quiz, start a session, run it with
-      a real host + multiple player clients across Host/Display/Play/
-      Results, confirm scoring/leaderboard/podium match
-      backend-authoritative results. This still needs a live backend
-      (Postgres) running locally — hasn't been exercised yet.
+- [x] End-to-end manual pass (2026-09-23, via `docker compose up` +
+      Claude in Chrome): created a quiz, started a session, ran it as
+      Host with a live Display tab and one Player tab — join, lobby
+      update, question broadcast, answer submit, lock/reveal/leaderboard,
+      next→end, results/podium. Confirmed scoring (+20 pts, correct
+      answer), own-rank display, and that Play/Display render identical
+      colors/shapes for the same option (Decision #48's convergence
+      wasn't a fluke). Found and fixed one real bug along the way
+      (Decision #51 — bodyless requests were sending
+      `Content-Type: application/json`, which broke `POST /auth/register`).
+- [ ] E2E test automation: turn the manual pass above into an automated
+      suite (e.g. Playwright) that runs against the docker-compose stack,
+      so this flow is regression-tested going forward instead of only
+      manually re-verified.
 
 ## Status
 
@@ -110,5 +128,7 @@ and again after the final consolidation). See Decisions #47-49 for the
 interim/gap items that surfaced during that work (host/display token
 hand-off via `?token=`, client-side answer color/shape assignment, and the
 `/play/:sessionId` route param actually being the join code). The
-Creator→session hand-off gap is now closed (2026-09-23) — the only
-remaining item is the end-to-end manual pass against a live backend.
+Creator→session hand-off gap is closed, and the full user journey has now
+been manually verified end-to-end (2026-09-23) against a real docker-compose
+backend, with one real bug found and fixed (Decision #51). The only
+remaining item is turning that manual pass into automated E2E tests.

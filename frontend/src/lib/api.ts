@@ -17,7 +17,13 @@ export class ApiError extends Error {
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getCreatorToken()
   const headers = new Headers(init.headers)
-  headers.set('Content-Type', 'application/json')
+  // Only set Content-Type when there's actually a body — Fastify's JSON
+  // body parser rejects an empty body sent with 'application/json'
+  // (FST_ERR_CTP_EMPTY_JSON_BODY), which broke bodyless calls like
+  // POST /auth/register.
+  if (init.body !== undefined) {
+    headers.set('Content-Type', 'application/json')
+  }
   if (token) {
     headers.set('Authorization', `Bearer ${token}`)
   }

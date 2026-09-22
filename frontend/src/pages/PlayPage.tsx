@@ -1,19 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AnswerGrid, type AnswerOption } from '@/components/AnswerGrid'
+import { AnswerGrid } from '@/components/AnswerGrid'
+import { toAnswerOptions } from '@/components/answerStyles'
 import { Button } from '@/components/ui/button'
 import { getParticipantToken, setParticipantToken, useGameSocket } from '@/hooks/useGameSocket'
-
-// Classic four-way color/shape palette (PRD's "color/shape button grid").
-// The backend only sends {id, text} per option (DESIGN.md keeps isCorrect
-// server-side) — color/shape is a purely presentational, position-based
-// client concern, assigned here in the same fixed order every time.
-const OPTION_STYLES: Array<{ color: string; shape: AnswerOption['shape'] }> = [
-  { color: '#e21b3c', shape: 'triangle' },
-  { color: '#1368ce', shape: 'diamond' },
-  { color: '#d89e00', shape: 'circle' },
-  { color: '#26890c', shape: 'square' },
-]
 
 type BackendOption = { id: string; text: string }
 
@@ -36,15 +26,6 @@ type PromotionResult = { approved: boolean }
 type GameEnded = { resultsUrl: string }
 
 type Phase = 'connecting' | 'lobby' | 'question' | 'locked' | 'result' | 'ended' | 'error'
-
-function toOptions(options: BackendOption[]): AnswerOption[] {
-  return options.map((option, index) => ({
-    id: option.id,
-    label: option.text,
-    color: OPTION_STYLES[index % OPTION_STYLES.length].color,
-    shape: OPTION_STYLES[index % OPTION_STYLES.length].shape,
-  }))
-}
 
 // Player/Spectator gameplay: /play/:sessionId. `sessionId` here is the
 // join code the player entered on /join (see JoinPage's note on why —
@@ -168,7 +149,7 @@ export function PlayPage() {
       ) : null}
       {question ? (
         <AnswerGrid
-          options={toOptions(question.options)}
+          options={toAnswerOptions(question.options)}
           onSelect={handleSelect}
           disabled={role !== 'PLAYER' || phase !== 'question' || Boolean(selectedOptionId)}
         />

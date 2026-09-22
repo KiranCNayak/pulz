@@ -30,3 +30,7 @@ backend/prisma/*.db
 
 # Coverage
 coverage/
+
+# Playwright
+frontend/playwright-report/
+frontend/test-results/

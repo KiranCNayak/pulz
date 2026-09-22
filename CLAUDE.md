@@ -108,10 +108,11 @@ Natural next steps, roughly in order:
    `docs/ARCHITECTURE.md` §5.~~ Done, all seven feature views (Creator
    flows, Host, Display, Join/Play, Results) are implemented, and the
    Creator flow now starts a session and links to Host/Display — see
-   `docs/FRONTEND_PLAN.md` for current status and Decisions #39-51. The
+   `docs/FRONTEND_PLAN.md` for current status and Decisions #39-52. The
    full journey has been manually verified end-to-end against a live
-   backend (`docker compose up`, Decision #50); E2E test automation is
-   the next open item.
+   backend (`docker compose up`, Decision #50) and is covered by an
+   automated Playwright E2E test (Decision #52) — no open items remain
+   on the frontend plan.
 3. ~~Finish the Creator flow~~ Done differently than originally planned —
    see Decision #38: instead of email/password or JWT auth
    (`docs/ARCHITECTURE.md` §7, now superseded for the moment), Creator

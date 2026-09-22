@@ -31,16 +31,17 @@ See:
 - [`frontend/`](frontend/) — React + Vite SPA. All seven routes (Creator
   flows, Host, Display, Join/Play, Results) are implemented, including the
   Creator→session hand-off. Manually verified end-to-end against a live
-  backend; E2E test automation is next. See `docs/FRONTEND_PLAN.md`.
+  backend and covered by a Playwright E2E test. See `docs/FRONTEND_PLAN.md`.
 
 **Status:** MVP backend implemented and verified end-to-end; frontend's
 full user journey (create → start session → host/display/play → results)
-is implemented and manually verified end-to-end via `docker compose up` —
-see `docs/FRONTEND_PLAN.md` for the plan/progress and how to run the stack
-locally, and `CLAUDE.md` for the full up-to-date picture.
+is implemented, manually verified end-to-end, and covered by an automated
+E2E test — see `docs/FRONTEND_PLAN.md` for the plan/progress and how to
+run the stack locally, and `CLAUDE.md` for the full up-to-date picture.
 
 ## Local development
 
 `docker compose up --build` from the repo root starts Postgres, the
-backend, and the frontend together — see `docs/FRONTEND_PLAN.md` for
-details.
+backend, and the frontend together. With that running,
+`cd frontend && npm run test:e2e` runs the E2E suite — see
+`docs/FRONTEND_PLAN.md` for details.

@@ -2,10 +2,9 @@
 
 Living tracker for the frontend build-out (CLAUDE.md "Likely next steps" #2).
 **The full user journey (create quiz → start session → host runs it →
-players join/play → results) has been manually verified end-to-end**
-against a live backend via `docker compose up` (Decision #50) and Claude
-in Chrome. E2E test automation is the remaining item — see "Work
-breakdown" below. If you're an agent picking this up cold:
+players join/play → results) is both manually verified and covered by an
+automated Playwright E2E test** (`frontend/e2e/full-game-flow.spec.ts`,
+Decision #52). If you're an agent picking this up cold:
 
 1. Read `CLAUDE.md` first for overall project orientation.
 2. Read `docs/PRD.md` (user flows, roles) and `docs/DESIGN.md` (state
@@ -52,6 +51,9 @@ and the frontend (`vite --host 0.0.0.0`) each in their own container, with
 the repo bind-mounted for live reload. Frontend: `http://localhost:5173`.
 Backend: `http://localhost:3000`. This is dev-only — not a production
 deployment manifest (see the comment at the top of `docker-compose.yml`).
+
+With the stack running, `cd frontend && npm run test:e2e` runs the
+Playwright E2E suite (Decision #52) against it.
 
 ## Work breakdown
 
@@ -114,10 +116,12 @@ items here as they're discovered — don't let this list go stale.
       wasn't a fluke). Found and fixed one real bug along the way
       (Decision #51 — bodyless requests were sending
       `Content-Type: application/json`, which broke `POST /auth/register`).
-- [ ] E2E test automation: turn the manual pass above into an automated
-      suite (e.g. Playwright) that runs against the docker-compose stack,
-      so this flow is regression-tested going forward instead of only
-      manually re-verified.
+- [x] E2E test automation (Decision #52): `frontend/e2e/full-game-flow.spec.ts`
+      (Playwright) automates the manual pass above — Creator/Host/
+      Display/Player each in their own browser context, run via
+      `npm run test:e2e` from `frontend/` against the docker-compose
+      stack (which must already be running — the suite doesn't manage
+      that lifecycle). Verified stable across repeated runs.
 
 ## Status
 
@@ -128,7 +132,9 @@ and again after the final consolidation). See Decisions #47-49 for the
 interim/gap items that surfaced during that work (host/display token
 hand-off via `?token=`, client-side answer color/shape assignment, and the
 `/play/:sessionId` route param actually being the join code). The
-Creator→session hand-off gap is closed, and the full user journey has now
-been manually verified end-to-end (2026-09-23) against a real docker-compose
-backend, with one real bug found and fixed (Decision #51). The only
-remaining item is turning that manual pass into automated E2E tests.
+Creator→session hand-off gap is closed, and the full user journey has been
+manually verified end-to-end (2026-09-23) against a real docker-compose
+backend, with one real bug found and fixed (Decision #51), and is now also
+covered by an automated Playwright E2E test (Decision #52). No open items
+remain on this plan; future work is genuinely new scope (polish, more
+quiz-editing features, etc.), not something tracked here as a gap.

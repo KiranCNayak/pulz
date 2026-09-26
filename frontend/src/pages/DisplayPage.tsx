@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { AnswerGrid } from '@/components/AnswerGrid'
 import { toAnswerOptions } from '@/components/answerStyles'
 import { useGameSocket } from '@/hooks/useGameSocket'
+import { getSocket } from '@/lib/socket'
 
 type AuthStatus = 'connecting' | 'ok' | 'error'
 
@@ -42,9 +43,16 @@ export function DisplayPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const [searchParams] = useSearchParams()
   const displayToken = searchParams.get('token')
-  const socket = useGameSocket(sessionId ?? '')
-
   const hasParams = Boolean(sessionId && displayToken)
+
+  // Re-sent on every socket `connect` (initial + auto-reconnect after a
+  // transport-level drop, not just on page reload — see useGameSocket).
+  const sendDisplayAuth = useCallback(() => {
+    if (!hasParams) return
+    getSocket().emit('display:auth', { sessionId, displayToken })
+  }, [sessionId, displayToken, hasParams])
+
+  const socket = useGameSocket(sessionId ?? '', sendDisplayAuth)
 
   const [authStatus, setAuthStatus] = useState<AuthStatus>('connecting')
   const [authError, setAuthError] = useState<string | null>(null)
@@ -89,8 +97,6 @@ export function DisplayPage() {
     socket.on('question:reveal', handleReveal)
     socket.on('leaderboard:update', handleLeaderboard)
     socket.on('game:ended', handleGameEnded)
-
-    socket.emit('display:auth', { sessionId, displayToken })
 
     return () => {
       socket.off('display:auth_ok', handleAuthOk)

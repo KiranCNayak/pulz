@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useGameSocket } from '@/hooks/useGameSocket'
+import { getSocket } from '@/lib/socket'
 
 type LobbyParticipant = { id: string; displayName: string }
 
@@ -51,11 +52,19 @@ type QuestionPhase = 'ACTIVE' | 'LOCKED'
 export function HostPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const [searchParams] = useSearchParams()
-  const socket = useGameSocket(sessionId ?? '')
 
   const [hostToken, setHostToken] = useState(searchParams.get('token') ?? '')
   const [tokenDraft, setTokenDraft] = useState('')
   const [authError, setAuthError] = useState<string | null>(null)
+
+  // Re-sent on every socket `connect` (initial + auto-reconnect after a
+  // transport-level drop, not just on page reload — see useGameSocket).
+  const sendHostAuth = useCallback(() => {
+    if (!sessionId || !hostToken) return
+    getSocket().emit('host:auth', { sessionId, hostToken })
+  }, [sessionId, hostToken])
+
+  const socket = useGameSocket(sessionId ?? '', sendHostAuth)
 
   const [snapshot, setSnapshot] = useState<HostSnapshot | null>(null)
   const [question, setQuestion] = useState<QuestionBroadcast | null>(null)
@@ -68,8 +77,6 @@ export function HostPage() {
 
   useEffect(() => {
     if (!sessionId || !hostToken) return
-
-    socket.emit('host:auth', { sessionId, hostToken })
 
     const onAuthOk = (snap: HostSnapshot) => {
       setAuthError(null)

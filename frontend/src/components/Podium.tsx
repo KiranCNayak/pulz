@@ -32,7 +32,12 @@ export function Podium({ entries }: PodiumProps) {
             className={`flex w-28 flex-col items-center justify-end rounded-t-lg pb-2 text-center shadow-sm ${medal.className}`}
           >
             <div className="text-2xl">{medal.label}</div>
-            <div className="mt-1 truncate px-1 font-semibold">{entry.name}</div>
+            {/* Explicit dark text: these medal blocks are fixed light
+                colors regardless of app theme (like AnswerGrid's option
+                buttons), so text must not inherit the theme-driven
+                foreground color — in dark mode that's near-white and
+                unreadable against amber/slate/orange. */}
+            <div className="mt-1 truncate px-1 font-semibold text-black/80">{entry.name}</div>
             <div className="text-sm text-black/70">{entry.score} pts</div>
           </div>
         )

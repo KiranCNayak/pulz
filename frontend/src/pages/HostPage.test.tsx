@@ -47,6 +47,14 @@ describe('HostPage', () => {
   it('authenticates and renders the lobby once host:auth_ok arrives', () => {
     renderHostPage('/host/session-1?token=host-token-abc')
 
+    // useGameSocket only emits host:auth from its socket 'connect'
+    // handler (so a transport-level reconnect re-authenticates too, not
+    // just a page reload) — the fake socket's connect() is a no-op spy,
+    // so simulate the real Socket.IO client's async 'connect' event.
+    act(() => {
+      listeners.get('connect')?.(undefined)
+    })
+
     expect(fakeSocket.emit).toHaveBeenCalledWith('host:auth', {
       sessionId: 'session-1',
       hostToken: 'host-token-abc',

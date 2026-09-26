@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerGrid } from '@/components/AnswerGrid'
 import { toAnswerOptions } from '@/components/answerStyles'
 import { Button } from '@/components/ui/button'
 import { getParticipantToken, setParticipantToken, useGameSocket } from '@/hooks/useGameSocket'
+import { getSocket } from '@/lib/socket'
 
 type BackendOption = { id: string; text: string }
 
@@ -54,7 +55,19 @@ type Phase = 'connecting' | 'lobby' | 'question' | 'locked' | 'result' | 'ended'
 export function PlayPage() {
   const { sessionId: joinCode } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
-  const socket = useGameSocket(joinCode ?? '')
+
+  // Re-sent on every socket `connect` (initial + auto-reconnect after a
+  // transport-level drop, not just on page reload — see useGameSocket).
+  const sendJoinRequest = useCallback(() => {
+    if (!joinCode) return
+    getSocket().emit('join:request', {
+      joinCode,
+      participantToken: getParticipantToken() ?? undefined,
+      displayName: localStorage.getItem('pulz:displayName') ?? undefined,
+    })
+  }, [joinCode])
+
+  const socket = useGameSocket(joinCode ?? '', sendJoinRequest)
 
   const [phase, setPhase] = useState<Phase>('connecting')
   const [role, setRole] = useState<'PLAYER' | 'SPECTATOR' | null>(null)
@@ -139,12 +152,6 @@ export function PlayPage() {
     socket.on('answer:result', onAnswerResult)
     socket.on('promotion:result', onPromotionResult)
     socket.on('game:ended', onGameEnded)
-
-    socket.emit('join:request', {
-      joinCode,
-      participantToken: getParticipantToken() ?? undefined,
-      displayName: localStorage.getItem('pulz:displayName') ?? undefined,
-    })
 
     return () => {
       socket.off('join:accepted', onJoinAccepted)

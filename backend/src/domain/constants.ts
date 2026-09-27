@@ -27,7 +27,10 @@ export function clampTimeLimitSeconds(seconds: number): number {
 // endpoints, which sit behind Decision #22's "already authenticated"
 // exemption — it IS part of the anonymous attack surface and needs its
 // own rate limit against runaway row creation / storage abuse. Loose
-// per-IP window, same shape as the join-attempt limiter.
+// per-IP window, same shape as the join-attempt limiter. This is the
+// production default; `REGISTER_RATE_LIMIT_PER_HOUR` (config/env.ts) can
+// override it — the dev-only docker-compose stack raises it so repeated
+// E2E runs (3 registrations each) don't trip it.
 export const REGISTER_IP_RATE_LIMIT = 10;
 export const REGISTER_IP_RATE_WINDOW_MS = 60 * 60_000;
 

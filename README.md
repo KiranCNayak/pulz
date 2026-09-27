@@ -34,7 +34,7 @@ See:
   backend and covered by three Playwright E2E tests. See
   `docs/FRONTEND_PLAN.md`.
 
-**Status:** MVP backend implemented and verified end-to-end (67 automated
+**Status:** MVP backend implemented and verified end-to-end (68 automated
 tests); frontend's full user journey (create → start session →
 host/display/play → results) is implemented, manually verified
 end-to-end, and covered by three automated E2E tests, which are stable
@@ -47,9 +47,9 @@ for the full up-to-date picture.
 `docker compose up --build` from the repo root starts Postgres, the
 backend, and the frontend together. With that running,
 `cd frontend && npm run test:e2e` runs the E2E suite — see
-`docs/FRONTEND_PLAN.md` for details. Each full E2E run registers 3
-Creators against `POST /auth/register`'s 10/hour-per-IP limit, so after
-~3 runs in an hour, `docker compose restart backend` to reset it.
+`docs/FRONTEND_PLAN.md` for details. (The dev stack raises
+`POST /auth/register`'s 10/hour-per-IP production limit so the suite can
+be re-run freely — Decision #60.)
 
 ## Screenshots
 

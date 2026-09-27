@@ -123,8 +123,9 @@ items here as they're discovered — don't let this list go stale.
       `npm run test:e2e` from `frontend/` against the docker-compose
       stack (which must already be running — the suite doesn't manage
       that lifecycle). Runs serially (`workers: 1`, all specs share one
-      backend/DB); `POST /auth/register`'s 10/hour per-IP limit means
-      >5 full-suite runs/hour trips it — restart the backend to reset.
+      backend/DB). `POST /auth/register`'s 10/hour per-IP production
+      limit is raised in the dev docker-compose stack (Decision #60), so
+      the suite can be re-run freely.
 - [x] Reconnect tested against an actual dropped connection (Decision
       #53) — CLAUDE.md's flagged gap. `frontend/e2e/reconnect.spec.ts`
       uses `page.reload()` mid-question and again after lock to simulate
@@ -186,6 +187,12 @@ items here as they're discovered — don't let this list go stale.
       players couldn't answer in a prod build. `PlayPage` now shows
       "Answer received" on `answer:ack`, and the specs wait on that
       instead of fixed sleeps. 12 consecutive full-suite runs green.
+- [x] Decision #59's leftovers (Decision #60): Host/Display/Play/Join
+      now show a message when the server refuses the socket connection
+      instead of hanging on "Connecting…"; a real-Socket.IO backend
+      integration test covers the stale-disconnect guard; the dev stack
+      raises the `/auth/register` limit so E2E runs don't need backend
+      restarts.
 
 ## Status
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerGrid } from '@/components/AnswerGrid'
 import { toAnswerOptions } from '@/components/answerStyles'
+import { ConnectionErrorMessage } from '@/components/ConnectionErrorMessage'
 import { Button } from '@/components/ui/button'
 import { getParticipantToken, setParticipantToken, useGameSocket } from '@/hooks/useGameSocket'
 import { getSocket } from '@/lib/socket'
@@ -68,7 +69,7 @@ export function PlayPage() {
     })
   }, [joinCode])
 
-  const socket = useGameSocket(joinCode ?? '', sendJoinRequest)
+  const { socket, connectionError } = useGameSocket(joinCode ?? '', sendJoinRequest)
 
   const [phase, setPhase] = useState<Phase>('connecting')
   const [role, setRole] = useState<'PLAYER' | 'SPECTATOR' | null>(null)
@@ -198,6 +199,9 @@ export function PlayPage() {
 
   if (phase === 'error') {
     return <div className="p-6 text-destructive">{error}</div>
+  }
+  if (connectionError) {
+    return <ConnectionErrorMessage error={connectionError} />
   }
   if (phase === 'connecting' || phase === 'lobby') {
     return (

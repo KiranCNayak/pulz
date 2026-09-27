@@ -7,11 +7,12 @@ import { defineConfig, devices } from '@playwright/test'
 // model well; see docs/FRONTEND_PLAN.md for the run instructions.
 //
 // Each spec registers a fresh Creator (Decision #38's capability-token
-// auth has no login to reuse), and POST /auth/register is rate-limited
-// to 10/hour per IP by design (Decision #38) — running this suite ~5
-// times in an hour from the same machine will trip it. That's the
-// limiter working correctly, not a test bug; `docker compose restart
-// backend` resets its in-memory state for local iteration.
+// auth has no login to reuse). POST /auth/register is rate-limited to
+// 10/hour per IP in production (Decision #38); the dev docker-compose
+// stack raises that via REGISTER_RATE_LIMIT_PER_HOUR (Decision #60) so
+// the suite can be run repeatedly. If you run against a backend without
+// that override, ~3 full runs an hour will trip it (429s in the backend
+// log) — `docker compose restart backend` resets it.
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,

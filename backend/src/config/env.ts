@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { REGISTER_IP_RATE_LIMIT } from "../domain/constants.js";
 
 function requireEnv(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
@@ -27,6 +28,7 @@ export const env = {
   authSecret: requireEnv("AUTH_SECRET", "change-me-in-real-env"),
   resultsTtlHours: intEnv("RESULTS_TTL_HOURS", 24),
   resultsCleanupIntervalMinutes: intEnv("RESULTS_CLEANUP_INTERVAL_MINUTES", 5),
+  registerRateLimitPerHour: intEnv("REGISTER_RATE_LIMIT_PER_HOUR", REGISTER_IP_RATE_LIMIT),
 } as const;
 
 export const isProduction = env.nodeEnv === "production";

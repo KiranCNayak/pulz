@@ -109,15 +109,16 @@ Natural next steps, roughly in order:
    `docs/ARCHITECTURE.md` §5.~~ Done, all seven feature views (Creator
    flows, Host, Display, Join/Play, Results) are implemented, and the
    Creator flow now starts a session and links to Host/Display — see
-   `docs/FRONTEND_PLAN.md` for current status and Decisions #39-59. The
+   `docs/FRONTEND_PLAN.md` for current status and Decisions #39-60. The
    full journey has been manually verified end-to-end against a live
    backend (`docker compose up`, Decision #50) and is covered by three
    automated Playwright E2E tests (Decisions #52-53, #58). The suite's
    earlier flakiness is root-caused and fixed (Decision #59 — a raw-IP
    socket connection limiter, plus a prod-only PlayPage join bug found
-   along the way). If a run goes red, check backend logs for `429`s
-   first: `POST /auth/register` is limited to 10/hour/IP and each full
-   run registers 3 Creators — `docker compose restart backend` resets it.
+   along the way). The dev docker-compose stack raises
+   `POST /auth/register`'s 10/hour/IP production limit (Decision #60), so
+   repeated E2E runs no longer need a backend restart; if a run goes red
+   against some other backend, check its logs for `429`s first.
 3. ~~Finish the Creator flow~~ Done differently than originally planned —
    see Decision #38: instead of email/password or JWT auth
    (`docs/ARCHITECTURE.md` §7, now superseded for the moment), Creator

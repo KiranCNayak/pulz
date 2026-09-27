@@ -42,6 +42,10 @@ services:
       AUTH_SECRET: dev-secret-change-me
       RESULTS_TTL_HOURS: "24"
       RESULTS_CLEANUP_INTERVAL_MINUTES: "5"
+      # Dev-only: production keeps the 10/hour default (Decision #38). Each
+      # full E2E run registers 3 Creators, so the default would trip after
+      # ~3 runs an hour — raised here so the suite can be run repeatedly.
+      REGISTER_RATE_LIMIT_PER_HOUR: "1000"
     ports:
       - "3000:3000"
     volumes:

@@ -52,13 +52,24 @@ export function JoinPage() {
       setError(payload.error)
     }
 
+    // The server can also refuse the connection itself (rate limit —
+    // `connection:error` then a forced disconnect), which would otherwise
+    // leave this form stuck submitting forever.
+    function onServerDisconnect(reason: string) {
+      if (reason === 'io server disconnect') onError({ error: 'Disconnected by the server — please try again.' })
+    }
+
     function cleanup() {
       socket.off('join:accepted', onAccepted)
       socket.off('join:error', onError)
+      socket.off('connection:error', onError)
+      socket.off('disconnect', onServerDisconnect)
     }
 
     socket.on('join:accepted', onAccepted)
     socket.on('join:error', onError)
+    socket.on('connection:error', onError)
+    socket.on('disconnect', onServerDisconnect)
     socket.connect()
     socket.emit('join:request', { joinCode: code, displayName: name })
   }

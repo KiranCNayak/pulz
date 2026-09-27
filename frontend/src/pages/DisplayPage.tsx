@@ -52,7 +52,7 @@ export function DisplayPage() {
     getSocket().emit('display:auth', { sessionId, displayToken })
   }, [sessionId, displayToken, hasParams])
 
-  const socket = useGameSocket(sessionId ?? '', sendDisplayAuth)
+  const { socket, connectionError } = useGameSocket(sessionId ?? '', sendDisplayAuth)
 
   const [authStatus, setAuthStatus] = useState<AuthStatus>('connecting')
   const [authError, setAuthError] = useState<string | null>(null)
@@ -121,6 +121,14 @@ export function DisplayPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-900 p-8 text-center text-2xl text-white">
         {authError}
+      </div>
+    )
+  }
+
+  if (connectionError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-neutral-900 p-8 text-center text-2xl text-white">
+        {connectionError} Reload the page to try again.
       </div>
     )
   }

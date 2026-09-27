@@ -1,16 +1,16 @@
-import { act, render } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGameSocket } from './useGameSocket'
 
-const listeners = new Map<string, () => void>()
+const listeners = new Map<string, (payload?: unknown) => void>()
 
 const fakeSocket = {
   id: undefined as string | undefined,
   connected: false,
   connect: vi.fn(),
   disconnect: vi.fn(),
-  on: vi.fn((event: string, handler: () => void) => {
+  on: vi.fn((event: string, handler: (payload?: unknown) => void) => {
     listeners.set(event, handler)
   }),
   off: vi.fn((event: string) => {
@@ -25,6 +25,11 @@ vi.mock('@/lib/socket', () => ({
 function Consumer({ onConnect }: { onConnect: () => void }) {
   useGameSocket('session-1', onConnect)
   return null
+}
+
+function ErrorConsumer() {
+  const { connectionError } = useGameSocket('session-1')
+  return <p>{connectionError ?? 'no error'}</p>
 }
 
 function simulateConnect(id: string) {
@@ -79,6 +84,33 @@ describe('useGameSocket', () => {
     // re-authenticate.
     simulateConnect('sock-2')
     expect(onConnect).toHaveBeenCalledTimes(2)
+  })
+
+  it('surfaces a server-refused connection instead of hanging on "Connecting…"', () => {
+    render(<ErrorConsumer />)
+    simulateConnect('sock-1')
+
+    act(() => {
+      listeners.get('connection:error')?.({ error: 'Too many connections — slow down' })
+      listeners.get('disconnect')?.('io server disconnect')
+    })
+    // The specific reason wins over the generic server-disconnect message.
+    expect(screen.getByText('Too many connections — slow down')).toBeInTheDocument()
+  })
+
+  it('reports a bare server-initiated disconnect, but not an ordinary transport drop', () => {
+    render(<ErrorConsumer />)
+    simulateConnect('sock-1')
+
+    act(() => {
+      listeners.get('disconnect')?.('transport close')
+    })
+    expect(screen.getByText('no error')).toBeInTheDocument()
+
+    act(() => {
+      listeners.get('disconnect')?.('io server disconnect')
+    })
+    expect(screen.getByText('Disconnected by the server.')).toBeInTheDocument()
   })
 
   it('disconnects once the last consumer unmounts', () => {

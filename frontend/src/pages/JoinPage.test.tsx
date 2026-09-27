@@ -66,4 +66,23 @@ describe('JoinPage', () => {
 
     expect(screen.getByText('Invalid or expired join code')).toBeInTheDocument()
   })
+
+  it('shows an error instead of hanging when the server refuses the connection', () => {
+    render(
+      <MemoryRouter>
+        <JoinPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/join code/i), { target: { value: 'ABC123' } })
+    fireEvent.change(screen.getByLabelText(/your name/i), { target: { value: 'Cara' } })
+    fireEvent.click(screen.getByRole('button', { name: /join/i }))
+
+    act(() => {
+      handlers.get('connection:error')?.({ error: 'Too many connections — slow down' })
+    })
+
+    expect(screen.getByText('Too many connections — slow down')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /join/i })).toBeEnabled()
+  })
 })

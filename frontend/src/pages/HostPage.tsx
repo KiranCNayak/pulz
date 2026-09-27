@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { ConnectionErrorMessage } from '@/components/ConnectionErrorMessage'
 import { useGameSocket } from '@/hooks/useGameSocket'
 import { getSocket } from '@/lib/socket'
 
@@ -64,7 +65,7 @@ export function HostPage() {
     getSocket().emit('host:auth', { sessionId, hostToken })
   }, [sessionId, hostToken])
 
-  const socket = useGameSocket(sessionId ?? '', sendHostAuth)
+  const { socket, connectionError } = useGameSocket(sessionId ?? '', sendHostAuth)
 
   const [snapshot, setSnapshot] = useState<HostSnapshot | null>(null)
   const [question, setQuestion] = useState<QuestionBroadcast | null>(null)
@@ -163,6 +164,10 @@ export function HostPage() {
         </div>
       </div>
     )
+  }
+
+  if (connectionError) {
+    return <ConnectionErrorMessage error={connectionError} />
   }
 
   if (!snapshot) {

@@ -1,12 +1,14 @@
 import type { FastifyInstance } from "fastify";
-import { REGISTER_IP_RATE_LIMIT, REGISTER_IP_RATE_WINDOW_MS } from "../domain/constants.js";
+import { env } from "../config/env.js";
+import { REGISTER_IP_RATE_WINDOW_MS } from "../domain/constants.js";
 import { SlidingWindowLimiter } from "../domain/rateLimiter.js";
 import { extractBearerToken, registerCreator, resolveCreatorId } from "../services/auth.service.js";
 
 // See Decision #38: registration is the one anonymous-by-construction
 // Creator endpoint, so it gets its own per-IP rate limit rather than
-// relying on Decision #22's "already authenticated" exemption.
-const registerLimiter = new SlidingWindowLimiter(REGISTER_IP_RATE_LIMIT, REGISTER_IP_RATE_WINDOW_MS);
+// relying on Decision #22's "already authenticated" exemption. The limit
+// itself is env-overridable (default 10/hour) — see constants.ts.
+const registerLimiter = new SlidingWindowLimiter(env.registerRateLimitPerHour, REGISTER_IP_RATE_WINDOW_MS);
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post("/auth/register", async (request, reply) => {

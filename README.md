@@ -19,6 +19,9 @@ See:
 - [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) — **current work in
   progress:** frontend plan, open design decisions, and progress checklist.
   Start here to continue the active work.
+- [`docs/HANDOFF.md`](docs/HANDOFF.md) — **⚠️ one-time handoff doc for an
+  open, unresolved issue** (E2E suite flakiness). Read this before
+  assuming a red E2E run is a real regression.
 
 ## Layout
 
@@ -33,11 +36,14 @@ See:
   Creator→session hand-off. Manually verified end-to-end against a live
   backend and covered by a Playwright E2E test. See `docs/FRONTEND_PLAN.md`.
 
-**Status:** MVP backend implemented and verified end-to-end; frontend's
-full user journey (create → start session → host/display/play → results)
-is implemented, manually verified end-to-end, and covered by an automated
-E2E test — see `docs/FRONTEND_PLAN.md` for the plan/progress and how to
-run the stack locally, and `CLAUDE.md` for the full up-to-date picture.
+**Status:** MVP backend implemented and verified end-to-end (65 automated
+tests); frontend's full user journey (create → start session →
+host/display/play → results) is implemented, manually verified
+end-to-end, and covered by three automated E2E tests. **One open item:**
+the E2E suite is currently intermittently flaky (not yet root-caused) —
+see `docs/HANDOFF.md`. See `docs/FRONTEND_PLAN.md` for the plan/progress
+and how to run the stack locally, and `CLAUDE.md` for the full
+up-to-date picture.
 
 ## Local development
 

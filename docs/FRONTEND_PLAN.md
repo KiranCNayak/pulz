@@ -2,9 +2,12 @@
 
 Living tracker for the frontend build-out (CLAUDE.md "Likely next steps" #2).
 **The full user journey (create quiz → start session → host runs it →
-players join/play → results) is both manually verified and covered by an
-automated Playwright E2E test** (`frontend/e2e/full-game-flow.spec.ts`,
-Decision #52). If you're an agent picking this up cold:
+players join/play → results) is manually verified and covered by three
+automated Playwright E2E tests** (Decisions #52-53, #58). **One open item:
+the E2E suite is currently intermittently flaky** (not yet root-caused) —
+see the "⚠️ Open item" section below and `docs/HANDOFF.md` before
+assuming a red CI run means a real regression. If you're an agent picking
+this up cold:
 
 1. Read `CLAUDE.md` first for overall project orientation.
 2. Read `docs/PRD.md` (user flows, roles) and `docs/DESIGN.md` (state
@@ -154,6 +157,73 @@ items here as they're discovered — don't let this list go stale.
       hardcoded gray/red Tailwind classes on Host/Join/Play pages that
       would otherwise look wrong once dark mode existed anywhere in the
       app.
+- [x] Backend automated test suite (Decision #56): `backend/` had zero
+      tests before this; now has 65 Vitest tests covering the pure
+      domain functions (scoring, shuffle, join codes, rate limiter) and
+      in-memory/mocked-Prisma service logic (full game-loop state
+      machine, join role assignment, results ranking). Real
+      Postgres-backed integration tests for the CRUD-heavy services
+      (`quiz.service.ts`, `auth.service.ts`, `session.service.ts`) were
+      deliberately deferred, not attempted — see Decision #56 for why.
+      Run via `npm run test` from `backend/`.
+- [x] Dark mode + polish extended to Join and Results (Decision #57) —
+      same pattern as Create/Edit, completing coverage for every
+      non-gameplay page. Caught a real dark-mode contrast bug in
+      `Podium` along the way (medal name text was unreadable in dark
+      mode) and fixed it.
+- [x] Transport-level reconnect fix (Decision #58) — closes the narrower
+      gap Decision #53 left open: a pure network drop that Socket.IO
+      auto-recovers from (no page reload) now also re-authenticates
+      correctly, via a `connect`-event-driven `onConnect` callback in
+      `useGameSocket`. Verified as a real fix via a stash-based
+      regression check, not just re-testing the already-fixed reload
+      case.
+
+## ⚠️ Open item — E2E suite flakiness (unresolved, needs investigation)
+
+After merging the three pieces above, the Playwright E2E suite
+(`full-game-flow.spec.ts`, `reconnect.spec.ts`, `transport-reconnect.spec.ts`)
+became intermittently flaky — including in `full-game-flow.spec.ts`, which
+has **no reconnect logic at all** and was rock-solid for many runs earlier
+in this project's history. Symptom: after a player answers and the host
+locks the question, `"Correct!"` sometimes never appears on the player's
+screen — as if the answer wasn't scored.
+
+**What's been ruled out:** backend logs show zero errors and no rate-limit
+(429) hits on every failing run — every REST call succeeds. This is not a
+crash, not the `/auth/register` 10/hour limiter (Decision #38), and (per a
+stash-based regression check) not the transport-reconnect fix itself being
+broken.
+
+**Working theory, not confirmed:** `answer:submit` has no ack
+(DESIGN.md §5 treats it as fire-and-forget), and Player/Host are
+independent Socket.IO connections with no ordering guarantee between them.
+A script can click "answer" then "lock" milliseconds apart — closer
+together than any real human host/player pair ever would — which may let
+the host's `lock_question` reach the server before the player's answer
+does. A `waitForTimeout(500)` settle buffer was added between answering
+and locking in two of the three specs (see the commit "Add settle buffers
+to E2E specs..."), which reduced but did **not** fully eliminate the
+flakiness (roughly 1-in-3 runs still hit it in local testing).
+
+**This has NOT been root-caused.** Possibilities not yet checked:
+- Whether the race is genuinely just answer-vs-lock ordering (the working
+  theory above), or something specific to the merged `useGameSocket`
+  change affecting the normal (non-reconnect) join flow too.
+- Whether increasing the buffer further (it was bumped 300ms → 500ms with
+  only partial improvement) would ever fully fix it, or whether that's
+  the wrong lever entirely.
+- Whether adding a lightweight server-side ack for `answer:submit` (e.g.
+  an `answer:ack` event) would be a more robust fix than a client-side
+  timing buffer — this would be a small backend + frontend change, not
+  just a test change, and hasn't been evaluated.
+- Whether this pre-dates today's three merges entirely (it was observed
+  once during a manual browser test earlier in the project, before any
+  of today's changes existed) and is just now more visible because the
+  suite runs the answer/lock sequence more often across more specs.
+
+**See `docs/HANDOFF.md`** for full context and suggested next steps for
+whoever picks this up.
 
 ## Status
 
@@ -166,12 +236,18 @@ hand-off via `?token=`, client-side answer color/shape assignment, and the
 `/play/:sessionId` route param actually being the join code). The
 Creator→session hand-off gap is closed, and the full user journey has been
 manually verified end-to-end (2026-09-23) against a real docker-compose
-backend, with two real bugs found and fixed along the way (Decision #51's
+backend, with real bugs found and fixed along the way (Decision #51's
 Content-Type bug, Decision #53's reconnect-state gap), and is covered by
-two automated Playwright E2E tests (Decisions #52-53). The Creator flow
-has also had a visual polish pass and dark mode support added (Decisions
-#54-55). No open items remain on this plan except the narrow
-transport-level-reconnect gap noted under Decision #53's item above;
-future work beyond that is genuinely new scope (more polish, more
-quiz-editing features, extending dark mode/redesign to the gameplay
-screens, etc.), not something tracked here as a gap.
+three automated Playwright E2E tests (Decisions #52-53, #58). The Creator
+flow has had a visual polish pass and dark mode support, now extended to
+Join and Results too (Decisions #54-55, #57). The backend went from zero
+automated tests to 65 (Decision #56). The narrower transport-level
+reconnect gap Decision #53 left open is now also closed (Decision #58).
+
+**One real open item remains: E2E suite flakiness** (2026-09-27, not yet
+root-caused) — see the "⚠️ Open item" section above and `docs/HANDOFF.md`
+for full context. Everything else that was tracked as a gap on this plan
+is closed; further work beyond the flakiness investigation is genuinely
+new scope (more polish, more quiz-editing features, extending dark
+mode/redesign to the gameplay screens, backend Postgres-integration
+tests, etc.), not something tracked here as a gap.

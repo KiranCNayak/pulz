@@ -68,7 +68,21 @@ test('player survives a transport-level drop without reloading the page', async 
   // re-associated the new connection, so the player can still answer and
   // get scored.
   await expect(playerPage.getByText('What is 2 + 2?')).toBeVisible()
-  await playerPage.getByRole('button', { name: '4', exact: true }).click()
+  const answerButton = playerPage.getByRole('button', { name: '4', exact: true })
+  await answerButton.click()
+  // The click's answer:submit is emitted right after the forced
+  // reconnect settles — give React one tick to flush the resulting
+  // "locked in" (disabled) state before the host locks, so this doesn't
+  // race the still-very-fresh connection under load.
+  await expect(answerButton).toBeDisabled()
+  // Player and Host are two independent socket connections with no
+  // ordering guarantee between them — there's no ack for answer:submit,
+  // so give the just-reconnected player socket a moment to actually
+  // flush the emit to the server before letting the host (on its own,
+  // stable connection) issue the lock. Without this, the two can race:
+  // the host's lock_question sometimes reaches the server before the
+  // freshly-reconnected player's answer does.
+  await playerPage.waitForTimeout(500)
 
   await hostPage.getByRole('button', { name: 'Lock question' }).click()
   await expect(playerPage.getByText('Correct!')).toBeVisible()

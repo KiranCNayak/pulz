@@ -3,6 +3,9 @@ import { getSocket } from '@/lib/socket'
 
 const PARTICIPANT_TOKEN_KEY = 'pulz:participantToken'
 
+// Mounted useGameSocket consumers — see the deferred disconnect below.
+let activeConsumers = 0
+
 export function getParticipantToken(): string | null {
   return localStorage.getItem(PARTICIPANT_TOKEN_KEY)
 }
@@ -29,10 +32,23 @@ export function setParticipantToken(token: string): void {
  * otherwise disconnect/reconnect the socket needlessly) — each view
  * still listens for its own events (DESIGN.md event catalogue) and holds
  * its own game-loop state in plain React state/context per Decision #46.
+ *
+ * If the shared socket is *already* connected on mount (JoinPage opens it
+ * and joins just before navigating to PlayPage), no `connect` event is
+ * coming, so `onConnect` runs immediately instead — at most once per
+ * underlying connection (keyed on `socket.id`, which changes on every
+ * reconnect), so StrictMode's double-invoked effect doesn't send it twice.
+ *
+ * Unmount doesn't disconnect synchronously: StrictMode (and any
+ * hook-to-hook navigation) re-acquires the socket in the same tick, and
+ * a disconnect/connect pair there churns a whole new server-side
+ * connection for nothing (Decision #59). The disconnect is deferred and
+ * skipped if another consumer has taken the socket in the meantime.
  */
 export function useGameSocket(sessionId: string, onConnect?: () => void) {
   const socket = getSocket()
   const onConnectRef = useRef(onConnect)
+  const handledConnectionRef = useRef<string | null>(null)
 
   // Keep the ref current post-render (not during render, which oxlint's
   // react(refs) rule correctly flags as unsafe) so a new inline callback
@@ -43,15 +59,23 @@ export function useGameSocket(sessionId: string, onConnect?: () => void) {
 
   useEffect(() => {
     function handleConnect() {
+      const connectionKey = `${sessionId}:${socket.id}`
+      if (handledConnectionRef.current === connectionKey) return
+      handledConnectionRef.current = connectionKey
       onConnectRef.current?.()
     }
 
+    activeConsumers += 1
     socket.on('connect', handleConnect)
-    socket.connect()
+    if (socket.connected) handleConnect()
+    else socket.connect()
 
     return () => {
       socket.off('connect', handleConnect)
-      socket.disconnect()
+      activeConsumers -= 1
+      setTimeout(() => {
+        if (activeConsumers === 0) socket.disconnect()
+      }, 0)
     }
   }, [socket, sessionId])
 

@@ -16,41 +16,40 @@ See:
   settled decisions
 - [`docs/GO_V2_EXPLORATION.md`](docs/GO_V2_EXPLORATION.md) — scope of the
   `backend-go/` performance exploration (not the MVP backend)
-- [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) — **current work in
-  progress:** frontend plan, open design decisions, and progress checklist.
-  Start here to continue the active work.
-- [`docs/HANDOFF.md`](docs/HANDOFF.md) — **⚠️ one-time handoff doc for an
-  open, unresolved issue** (E2E suite flakiness). Read this before
-  assuming a red E2E run is a real regression.
+- [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) — frontend plan,
+  settled decisions, progress checklist, and how to run the stack locally.
 
 ## Layout
 
 - [`backend/`](backend/) — the real MVP backend (Node.js/TypeScript,
-  Fastify + Socket.IO + Prisma/Postgres). Health check and Creator
-  quiz-CRUD scaffolded; see `CLAUDE.md` for current status and next steps.
+  Fastify + Socket.IO + Prisma/Postgres): Creator auth and quiz CRUD,
+  session creation, the full realtime game loop, and results. See
+  `CLAUDE.md` for current status and next steps.
 - [`backend-go/`](backend-go/) — **not** the MVP backend. A separate,
   low-priority Go performance-exploration module; see
   `docs/GO_V2_EXPLORATION.md`.
 - [`frontend/`](frontend/) — React + Vite SPA. All seven routes (Creator
   flows, Host, Display, Join/Play, Results) are implemented, including the
   Creator→session hand-off. Manually verified end-to-end against a live
-  backend and covered by a Playwright E2E test. See `docs/FRONTEND_PLAN.md`.
+  backend and covered by three Playwright E2E tests. See
+  `docs/FRONTEND_PLAN.md`.
 
-**Status:** MVP backend implemented and verified end-to-end (65 automated
+**Status:** MVP backend implemented and verified end-to-end (67 automated
 tests); frontend's full user journey (create → start session →
 host/display/play → results) is implemented, manually verified
-end-to-end, and covered by three automated E2E tests. **One open item:**
-the E2E suite is currently intermittently flaky (not yet root-caused) —
-see `docs/HANDOFF.md`. See `docs/FRONTEND_PLAN.md` for the plan/progress
-and how to run the stack locally, and `CLAUDE.md` for the full
-up-to-date picture.
+end-to-end, and covered by three automated E2E tests, which are stable
+(Decision #59 fixed the earlier flakiness). See `docs/FRONTEND_PLAN.md`
+for the plan/progress and how to run the stack locally, and `CLAUDE.md`
+for the full up-to-date picture.
 
 ## Local development
 
 `docker compose up --build` from the repo root starts Postgres, the
 backend, and the frontend together. With that running,
 `cd frontend && npm run test:e2e` runs the E2E suite — see
-`docs/FRONTEND_PLAN.md` for details.
+`docs/FRONTEND_PLAN.md` for details. Each full E2E run registers 3
+Creators against `POST /auth/register`'s 10/hour-per-IP limit, so after
+~3 runs in an hour, `docker compose restart backend` to reset it.
 
 ## Screenshots
 

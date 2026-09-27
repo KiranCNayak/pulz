@@ -44,6 +44,7 @@ type JoinAcceptedPayload = {
 type JoinErrorPayload = { error: string }
 type PromotionResult = { approved: boolean }
 type GameEnded = { resultsUrl: string }
+type AnswerError = { error: string }
 
 type Phase = 'connecting' | 'lobby' | 'question' | 'locked' | 'result' | 'ended' | 'error'
 
@@ -74,6 +75,11 @@ export function PlayPage() {
   const [promotionRequested, setPromotionRequested] = useState(false)
   const [question, setQuestion] = useState<QuestionBroadcast | null>(null)
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null)
+  // Server confirmation for the selected answer (`answer:ack`, DESIGN.md
+  // §3) — until it arrives, the tap is only known to have left this
+  // device, not to have counted.
+  const [answerAcked, setAnswerAcked] = useState(false)
+  const [answerError, setAnswerError] = useState<string | null>(null)
   const [reveal, setReveal] = useState<QuestionReveal | null>(null)
   const [result, setResult] = useState<AnswerResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -102,6 +108,8 @@ export function PlayPage() {
       // lobby with no way to see the active question).
       setQuestion(state.question)
       setSelectedOptionId(state.answeredOptionId ?? null)
+      setAnswerAcked(Boolean(state.answeredOptionId))
+      setAnswerError(null)
       if (state.question.phase === 'ACTIVE') {
         setPhase('question')
         return
@@ -121,6 +129,8 @@ export function PlayPage() {
     function onQuestionBroadcast(payload: QuestionBroadcast) {
       setQuestion(payload)
       setSelectedOptionId(null)
+      setAnswerAcked(false)
+      setAnswerError(null)
       setReveal(null)
       setResult(null)
       setPhase('question')
@@ -134,6 +144,12 @@ export function PlayPage() {
     function onAnswerResult(payload: AnswerResult) {
       setResult(payload)
       setPhase('result')
+    }
+    function onAnswerAck() {
+      setAnswerAcked(true)
+    }
+    function onAnswerError(payload: AnswerError) {
+      setAnswerError(payload.error)
     }
     function onPromotionResult(payload: PromotionResult) {
       setPromotionRequested(false)
@@ -150,6 +166,8 @@ export function PlayPage() {
     socket.on('question:locked', onQuestionLocked)
     socket.on('question:reveal', onQuestionReveal)
     socket.on('answer:result', onAnswerResult)
+    socket.on('answer:ack', onAnswerAck)
+    socket.on('answer:error', onAnswerError)
     socket.on('promotion:result', onPromotionResult)
     socket.on('game:ended', onGameEnded)
 
@@ -160,6 +178,8 @@ export function PlayPage() {
       socket.off('question:locked', onQuestionLocked)
       socket.off('question:reveal', onQuestionReveal)
       socket.off('answer:result', onAnswerResult)
+      socket.off('answer:ack', onAnswerAck)
+      socket.off('answer:error', onAnswerError)
       socket.off('promotion:result', onPromotionResult)
       socket.off('game:ended', onGameEnded)
     }
@@ -208,6 +228,10 @@ export function PlayPage() {
           disabled={role !== 'PLAYER' || phase !== 'question' || Boolean(selectedOptionId)}
         />
       ) : null}
+      {phase === 'question' && answerAcked ? (
+        <p className="text-center text-sm text-muted-foreground">Answer received — waiting for the host...</p>
+      ) : null}
+      {answerError && !result ? <p className="text-center text-sm text-destructive">{answerError}</p> : null}
       {phase === 'locked' && !result ? <p className="text-center">Answers locked — revealing soon...</p> : null}
       {reveal && phase === 'locked' && role === 'PLAYER' ? (
         <p className="text-center text-sm text-muted-foreground">

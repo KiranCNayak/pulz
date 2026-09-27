@@ -36,10 +36,14 @@ test('player reconnecting mid-question and after lock rehydrates instead of rese
   // locks — reconnect must rehydrate the still-active question with the
   // answer already marked as submitted, not reset to the lobby.
   await playerPage.getByRole('button', { name: '4', exact: true }).click()
+  // Wait for the server's answer:ack before reloading — otherwise the
+  // reload can tear the page down before answer:submit ever leaves it.
+  await expect(playerPage.getByText(/Answer received/)).toBeVisible()
   await playerPage.reload()
 
   await expect(playerPage.getByText('What is 2 + 2?')).toBeVisible()
   await expect(playerPage.getByRole('button', { name: '4', exact: true })).toBeDisabled()
+  await expect(playerPage.getByText(/Answer received/)).toBeVisible()
 
   // Host locks while the player is on the just-reloaded page.
   await hostPage.getByRole('button', { name: 'Lock question' }).click()

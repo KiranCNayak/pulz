@@ -53,14 +53,16 @@ export const JOIN_CODE_LOCKOUT_THRESHOLD = 20;
 export const JOIN_CODE_LOCKOUT_WINDOW_MS = 5 * 60_000;
 export const JOIN_CODE_LOCKOUT_DURATION_MS = 5 * 60_000;
 
-// Loose per-IP join-attempt limiter (ARCHITECTURE.md §11 table row 1) —
-// must tolerate a whole classroom behind one shared IP.
-export const JOIN_IP_RATE_LIMIT = 30;
-export const JOIN_IP_RATE_WINDOW_MS = 60_000;
+// Loose join-attempt limiter (ARCHITECTURE.md §11 table row 1), keyed
+// per composite key (IP + client id) — must tolerate a whole classroom
+// behind one shared IP.
+export const JOIN_RATE_LIMIT = 30;
+export const JOIN_RATE_WINDOW_MS = 60_000;
 
-// New-connection cap per IP (ARCHITECTURE.md §11 table row 3).
-export const SOCKET_CONNECT_IP_RATE_LIMIT = 20;
-export const SOCKET_CONNECT_IP_RATE_WINDOW_MS = 60_000;
+// New-connection cap per composite key (IP + client id — see
+// compositeRateKey; ARCHITECTURE.md §11 table row 3).
+export const SOCKET_CONNECT_RATE_LIMIT = 20;
+export const SOCKET_CONNECT_RATE_WINDOW_MS = 60_000;
 
 // --- Scoring (PRD §5, DESIGN.md §5, Decision #1/#2) ---
 

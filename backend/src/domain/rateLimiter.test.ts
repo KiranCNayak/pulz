@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LockoutTracker, SlidingWindowLimiter } from "./rateLimiter.js";
+import { compositeRateKey, LockoutTracker, SlidingWindowLimiter } from "./rateLimiter.js";
 
 describe("SlidingWindowLimiter", () => {
   it("allows up to the limit within a window, then rejects", () => {
@@ -109,5 +109,26 @@ describe("LockoutTracker", () => {
     tracker.recordFailure("a", 0);
     expect(tracker.isLockedOut("a", 0)).toBe(true);
     expect(tracker.isLockedOut("b", 0)).toBe(false);
+  });
+});
+
+describe("compositeRateKey", () => {
+  it("keys on IP + client id so shared-IP devices get separate buckets (ARCHITECTURE.md §11)", () => {
+    const a = compositeRateKey("203.0.113.7", "client-aaaaaaaa");
+    const b = compositeRateKey("203.0.113.7", "client-bbbbbbbb");
+    expect(a).not.toBe(b);
+
+    const limiter = new SlidingWindowLimiter(1, 1000);
+    expect(limiter.consume(a, 0)).toBe(true);
+    expect(limiter.consume(b, 0)).toBe(true); // a different device behind the same IP
+    expect(limiter.consume(a, 0)).toBe(false);
+  });
+
+  it("falls back to the bare IP for a missing or malformed client id", () => {
+    expect(compositeRateKey("203.0.113.7", undefined)).toBe("203.0.113.7");
+    expect(compositeRateKey("203.0.113.7", 42)).toBe("203.0.113.7");
+    expect(compositeRateKey("203.0.113.7", "short")).toBe("203.0.113.7");
+    expect(compositeRateKey("203.0.113.7", "x".repeat(65))).toBe("203.0.113.7");
+    expect(compositeRateKey("203.0.113.7", "has|pipe-chars")).toBe("203.0.113.7");
   });
 });

@@ -3,11 +3,9 @@
 Living tracker for the frontend build-out (CLAUDE.md "Likely next steps" #2).
 **The full user journey (create quiz → start session → host runs it →
 players join/play → results) is manually verified and covered by three
-automated Playwright E2E tests** (Decisions #52-53, #58). **One open item:
-the E2E suite is currently intermittently flaky** (not yet root-caused) —
-see the "⚠️ Open item" section below and `docs/HANDOFF.md` before
-assuming a red CI run means a real regression. If you're an agent picking
-this up cold:
+automated Playwright E2E tests** (Decisions #52-53, #58), which are
+stable again after the flakiness fix (Decision #59). If you're an agent
+picking this up cold:
 
 1. Read `CLAUDE.md` first for overall project orientation.
 2. Read `docs/PRD.md` (user flows, roles) and `docs/DESIGN.md` (state
@@ -178,52 +176,16 @@ items here as they're discovered — don't let this list go stale.
       `useGameSocket`. Verified as a real fix via a stash-based
       regression check, not just re-testing the already-fixed reload
       case.
-
-## ⚠️ Open item — E2E suite flakiness (unresolved, needs investigation)
-
-After merging the three pieces above, the Playwright E2E suite
-(`full-game-flow.spec.ts`, `reconnect.spec.ts`, `transport-reconnect.spec.ts`)
-became intermittently flaky — including in `full-game-flow.spec.ts`, which
-has **no reconnect logic at all** and was rock-solid for many runs earlier
-in this project's history. Symptom: after a player answers and the host
-locks the question, `"Correct!"` sometimes never appears on the player's
-screen — as if the answer wasn't scored.
-
-**What's been ruled out:** backend logs show zero errors and no rate-limit
-(429) hits on every failing run — every REST call succeeds. This is not a
-crash, not the `/auth/register` 10/hour limiter (Decision #38), and (per a
-stash-based regression check) not the transport-reconnect fix itself being
-broken.
-
-**Working theory, not confirmed:** `answer:submit` has no ack
-(DESIGN.md §5 treats it as fire-and-forget), and Player/Host are
-independent Socket.IO connections with no ordering guarantee between them.
-A script can click "answer" then "lock" milliseconds apart — closer
-together than any real human host/player pair ever would — which may let
-the host's `lock_question` reach the server before the player's answer
-does. A `waitForTimeout(500)` settle buffer was added between answering
-and locking in two of the three specs (see the commit "Add settle buffers
-to E2E specs..."), which reduced but did **not** fully eliminate the
-flakiness (roughly 1-in-3 runs still hit it in local testing).
-
-**This has NOT been root-caused.** Possibilities not yet checked:
-- Whether the race is genuinely just answer-vs-lock ordering (the working
-  theory above), or something specific to the merged `useGameSocket`
-  change affecting the normal (non-reconnect) join flow too.
-- Whether increasing the buffer further (it was bumped 300ms → 500ms with
-  only partial improvement) would ever fully fix it, or whether that's
-  the wrong lever entirely.
-- Whether adding a lightweight server-side ack for `answer:submit` (e.g.
-  an `answer:ack` event) would be a more robust fix than a client-side
-  timing buffer — this would be a small backend + frontend change, not
-  just a test change, and hasn't been evaluated.
-- Whether this pre-dates today's three merges entirely (it was observed
-  once during a manual browser test earlier in the project, before any
-  of today's changes existed) and is just now more visible because the
-  suite runs the answer/lock sequence more often across more specs.
-
-**See `docs/HANDOFF.md`** for full context and suggested next steps for
-whoever picks this up.
+- [x] E2E flakiness root-caused and fixed (Decision #59): the socket
+      connection limiter was keyed on raw IP (all Playwright contexts
+      share one), not the IP + client id ARCHITECTURE.md §11 specifies —
+      the suite hit the 20-connections/minute cap. Now composite-keyed.
+      Found and fixed a production-only bug along the way: `PlayPage`
+      never sent `join:request` over the already-connected socket
+      `JoinPage` hands it (StrictMode's reconnect masked this in dev), so
+      players couldn't answer in a prod build. `PlayPage` now shows
+      "Answer received" on `answer:ack`, and the specs wait on that
+      instead of fixed sleeps. 12 consecutive full-suite runs green.
 
 ## Status
 
@@ -244,10 +206,8 @@ Join and Results too (Decisions #54-55, #57). The backend went from zero
 automated tests to 65 (Decision #56). The narrower transport-level
 reconnect gap Decision #53 left open is now also closed (Decision #58).
 
-**One real open item remains: E2E suite flakiness** (2026-09-27, not yet
-root-caused) — see the "⚠️ Open item" section above and `docs/HANDOFF.md`
-for full context. Everything else that was tracked as a gap on this plan
-is closed; further work beyond the flakiness investigation is genuinely
-new scope (more polish, more quiz-editing features, extending dark
+The E2E flakiness that was the last open item (2026-09-27) is root-caused
+and fixed (Decision #59). Everything tracked as a gap on this plan is
+closed; further work is genuinely new scope (more polish, more quiz-editing features, extending dark
 mode/redesign to the gameplay screens, backend Postgres-integration
 tests, etc.), not something tracked here as a gap.

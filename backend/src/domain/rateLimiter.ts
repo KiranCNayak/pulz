@@ -81,3 +81,15 @@ export class LockoutTracker {
     this.attempts.delete(key);
   }
 }
+
+const CLIENT_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
+/** Composite rate-limit key (ARCHITECTURE.md §11 item 2): `IP + a
+ * lightweight client id` rather than raw IP, so a whole classroom behind
+ * one shared NAT/school-Wi-Fi IP isn't throttled as if it were a single
+ * client. The client id is an opaque, self-assigned tag — not
+ * authentication — so a missing or malformed one just falls back to the
+ * bare IP (the strictest bucket) rather than being rejected. */
+export function compositeRateKey(ip: string, clientId: unknown): string {
+  return typeof clientId === "string" && CLIENT_ID_PATTERN.test(clientId) ? `${ip}|${clientId}` : ip;
+}

@@ -3,10 +3,10 @@ import {
   JOIN_CODE_LOCKOUT_DURATION_MS,
   JOIN_CODE_LOCKOUT_THRESHOLD,
   JOIN_CODE_LOCKOUT_WINDOW_MS,
-  JOIN_IP_RATE_LIMIT,
-  JOIN_IP_RATE_WINDOW_MS,
+  JOIN_RATE_LIMIT,
+  JOIN_RATE_WINDOW_MS,
 } from "../domain/constants.js";
-import { LockoutTracker, SlidingWindowLimiter } from "../domain/rateLimiter.js";
+import { compositeRateKey, LockoutTracker, SlidingWindowLimiter } from "../domain/rateLimiter.js";
 import { getSessionById, getSessionByJoinCode, resolveParticipant } from "../domain/sessionStore.js";
 import * as gameLoop from "../services/gameLoop.service.js";
 import { controllerRoom, displayRoom, baseRoom } from "../services/gameLoop.service.js";
@@ -20,15 +20,15 @@ import type { GameSession, Participant } from "../types/session.js";
 // services/join.service.js so it isn't tangled up with Socket.IO wiring.
 
 // Join-code brute-force lockout (DESIGN.md §8, Decision #23) and the
-// loose per-IP join limiter (ARCHITECTURE.md §11) are module-level,
-// process-lifetime state — deliberately not per-session (see
-// types/session.ts's note on GameSession).
+// loose composite-key (IP + client id) join limiter (ARCHITECTURE.md
+// §11) are module-level, process-lifetime state — deliberately not
+// per-session (see types/session.ts's note on GameSession).
 const joinCodeLockout = new LockoutTracker(
   JOIN_CODE_LOCKOUT_THRESHOLD,
   JOIN_CODE_LOCKOUT_WINDOW_MS,
   JOIN_CODE_LOCKOUT_DURATION_MS,
 );
-const joinIpLimiter = new SlidingWindowLimiter(JOIN_IP_RATE_LIMIT, JOIN_IP_RATE_WINDOW_MS);
+const joinLimiter = new SlidingWindowLimiter(JOIN_RATE_LIMIT, JOIN_RATE_WINDOW_MS);
 
 type SocketRole = "HOST" | "DISPLAY" | "PARTICIPANT";
 interface SocketContext {
@@ -41,8 +41,8 @@ interface SocketContext {
 // re-validating a token on every single message.
 const socketContexts = new Map<string, SocketContext>();
 
-function socketIp(socket: Socket): string {
-  return socket.handshake.address;
+function socketRateKey(socket: Socket): string {
+  return compositeRateKey(socket.handshake.address, socket.handshake.auth?.clientId);
 }
 
 function hostSnapshot(session: GameSession) {
@@ -100,7 +100,7 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
         socket.emit("join:error", { error: "Too many attempts against this code — try again later" });
         return;
       }
-      if (!joinIpLimiter.consume(socketIp(socket))) {
+      if (!joinLimiter.consume(socketRateKey(socket))) {
         socket.emit("join:error", { error: "Too many join attempts — slow down" });
         return;
       }
@@ -234,8 +234,13 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
     const session = getSessionById(ctx.sessionId);
     const participant = session?.participants.get(ctx.participantId);
     // Mark disconnected, don't remove — ARCHITECTURE.md §6 reconnect
-    // handling resumes this same Participant via participantToken.
-    if (participant) participant.connected = false;
+    // handling resumes this same Participant via participantToken. Only
+    // if this is still the participant's *current* socket, though: a
+    // reconnect can rebind the participant to a new socket before the
+    // old one's disconnect is processed (separate transports, no ordering
+    // guarantee), and clobbering `connected` then would make lockQuestion
+    // skip this player's `answer:result` despite a live connection.
+    if (participant && participant.socketId === socket.id) participant.connected = false;
   });
 }
 

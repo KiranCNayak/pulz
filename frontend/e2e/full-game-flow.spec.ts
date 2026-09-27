@@ -45,14 +45,11 @@ test('full game flow: create, host, play, and view results', async ({ browser })
 
   const answerButton = playerPage.getByRole('button', { name: '4', exact: true })
   await answerButton.click()
-  // answer:submit has no ack (DESIGN.md §5 treats it as fire-and-forget)
-  // and Host/Player are independent socket connections — waiting for the
-  // grid to visibly disable proves the click landed client-side, but the
-  // host's Lock click on its own connection can still race the answer's
-  // trip to the server. A tiny settle buffer avoids asserting on that
-  // race; real hosts always have human reaction time between the two.
-  await expect(answerButton).toBeDisabled()
-  await playerPage.waitForTimeout(500)
+  // Host and Player are independent socket connections with no ordering
+  // guarantee between them, so wait for the server's answer:ack (surfaced
+  // on the player's screen) before the host locks — deterministic, unlike
+  // a fixed sleep. Real hosts always have human reaction time here.
+  await expect(playerPage.getByText(/Answer received/)).toBeVisible()
 
   await hostPage.getByRole('button', { name: 'Lock question' }).click()
 

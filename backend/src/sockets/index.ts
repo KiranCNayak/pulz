@@ -2,10 +2,10 @@ import type { Server as HttpServer } from "node:http";
 import { Server as SocketIOServer } from "socket.io";
 import { env } from "../config/env.js";
 import {
-  SOCKET_CONNECT_IP_RATE_LIMIT,
-  SOCKET_CONNECT_IP_RATE_WINDOW_MS,
+  SOCKET_CONNECT_RATE_LIMIT,
+  SOCKET_CONNECT_RATE_WINDOW_MS,
 } from "../domain/constants.js";
-import { SlidingWindowLimiter } from "../domain/rateLimiter.js";
+import { compositeRateKey, SlidingWindowLimiter } from "../domain/rateLimiter.js";
 import { registerSessionHandlers } from "./session.socket.js";
 
 /**
@@ -24,13 +24,18 @@ export function createSocketServer(httpServer: HttpServer): SocketIOServer {
     },
   });
 
-  // New-connection cap per IP (ARCHITECTURE.md §11 table row 3) — a
-  // coarse backstop against connection flooding, ahead of the edge-layer
-  // (Cloudflare) protections which are infra, not this process's job.
-  const connectLimiter = new SlidingWindowLimiter(SOCKET_CONNECT_IP_RATE_LIMIT, SOCKET_CONNECT_IP_RATE_WINDOW_MS);
+  // New-connection cap per composite key (ARCHITECTURE.md §11 table row
+  // 3) — a coarse backstop against connection flooding, ahead of the
+  // edge-layer (Cloudflare) protections which are infra, not this
+  // process's job. Keyed on IP + the client's self-assigned `clientId`
+  // (sent in the handshake's `auth`), not raw IP: every device in a
+  // shared-IP classroom opens its own connection(s) within the same
+  // minute, which a raw-IP cap would reject after the first ~20.
+  const connectLimiter = new SlidingWindowLimiter(SOCKET_CONNECT_RATE_LIMIT, SOCKET_CONNECT_RATE_WINDOW_MS);
 
   io.on("connection", (socket) => {
-    if (!connectLimiter.consume(socket.handshake.address)) {
+    const rateKey = compositeRateKey(socket.handshake.address, socket.handshake.auth?.clientId);
+    if (!connectLimiter.consume(rateKey)) {
       socket.emit("connection:error", { error: "Too many connections — slow down" });
       socket.disconnect(true);
       return;

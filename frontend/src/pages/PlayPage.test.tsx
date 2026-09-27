@@ -31,6 +31,29 @@ function serverEmits(event: string, payload?: unknown) {
   })
 }
 
+const QUESTION = {
+  questionId: 'q1',
+  text: 'What is 2 + 2?',
+  options: [
+    { id: 'o1', text: '3' },
+    { id: 'o2', text: '4' },
+  ],
+  timeLimitSeconds: 20,
+  serverStartTime: 0,
+  index: 0,
+  total: 1,
+}
+
+function renderPlayPage() {
+  render(
+    <MemoryRouter initialEntries={['/play/ABC123']}>
+      <Routes>
+        <Route path="/play/:sessionId" element={<PlayPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 describe('PlayPage', () => {
   beforeEach(() => {
     listeners.clear()
@@ -72,5 +95,32 @@ describe('PlayPage', () => {
 
     serverEmits('answer:ack', { received: true })
     expect(screen.getByText(/Answer received/)).toBeInTheDocument()
+  })
+
+  it("shows Time's up with the correct answer when the player didn't answer", () => {
+    renderPlayPage()
+    serverEmits('join:accepted', { participantId: 'p1', participantToken: 'participant-token', role: 'PLAYER' })
+    serverEmits('question:broadcast', QUESTION)
+
+    serverEmits('question:locked', { questionId: 'q1' })
+    serverEmits('question:reveal', { questionId: 'q1', correctOptionId: 'o2', tally: { o1: 1, o2: 0 } })
+    serverEmits('answer:result', { isCorrect: false, pointsEarned: 0, myRank: 2, totalPlayers: 2 })
+
+    expect(screen.getByText("Time's up!")).toBeInTheDocument()
+    expect(screen.getByText('+0 points')).toBeInTheDocument()
+    expect(screen.getByText('Rank 2 of 2')).toBeInTheDocument()
+    expect(screen.getByText('4')).toBeInTheDocument() // "Correct answer: 4"
+  })
+
+  it('shows Not quite. (not Time\'s up) for a wrong answer', () => {
+    renderPlayPage()
+    serverEmits('join:accepted', { participantId: 'p1', participantToken: 'participant-token', role: 'PLAYER' })
+    serverEmits('question:broadcast', QUESTION)
+    fireEvent.click(screen.getByRole('button', { name: '3' }))
+
+    serverEmits('question:reveal', { questionId: 'q1', correctOptionId: 'o2', tally: { o1: 1, o2: 0 } })
+    serverEmits('answer:result', { isCorrect: false, pointsEarned: 0, myRank: 1, totalPlayers: 1 })
+
+    expect(screen.getByText('Not quite.')).toBeInTheDocument()
   })
 })

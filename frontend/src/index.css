@@ -39,6 +39,17 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Game "stage" (Decision #61): the fixed, theme-independent backdrop for
+     the live gameplay screens players and the room look at (Play, Display).
+     Deliberately not redefined under .dark — like the answer-tile palette,
+     it's the game's own look, not part of the app's light/dark theme. */
+  --stage: #1b0f3b;
+  --stage-raised: #2b1a5a;
+  --stage-foreground: #ffffff;
+  --stage-muted: #c4b5f0;
+  --stage-correct: #15803d;
+  --stage-incorrect: #c72c48;
 }
 
 body {
@@ -79,6 +90,12 @@ body {
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  --color-stage: var(--stage);
+  --color-stage-raised: var(--stage-raised);
+  --color-stage-foreground: var(--stage-foreground);
+  --color-stage-muted: var(--stage-muted);
+  --color-stage-correct: var(--stage-correct);
+  --color-stage-incorrect: var(--stage-incorrect);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -120,6 +137,16 @@ body {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+@keyframes countdown-tick {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
 }
 
 @layer base {

@@ -193,6 +193,13 @@ items here as they're discovered — don't let this list go stale.
       integration test covers the stale-disconnect guard; the dev stack
       raises the `/auth/register` limit so E2E runs don't need backend
       restarts.
+- [x] Gameplay screens redesigned — "bold game-show" (Decision #61):
+      Host, Display and Play now share a stage look, shaped answer
+      tiles and a countdown ring; Display shows the reveal together with
+      the leaderboard and a podium at the end; Play has full-screen
+      Correct / Not quite / Time's up results. Decision #55's theme rules
+      still hold (no toggle during a live game; Display/Play always on the
+      stage, Host theme-aware).
 
 ## Status
 
@@ -214,7 +221,8 @@ automated tests to 65 (Decision #56). The narrower transport-level
 reconnect gap Decision #53 left open is now also closed (Decision #58).
 
 The E2E flakiness that was the last open item (2026-09-27) is root-caused
-and fixed (Decision #59). Everything tracked as a gap on this plan is
-closed; further work is genuinely new scope (more polish, more quiz-editing features, extending dark
-mode/redesign to the gameplay screens, backend Postgres-integration
-tests, etc.), not something tracked here as a gap.
+and fixed (Decision #59), and the gameplay screens have had their
+redesign (Decision #61). Everything tracked as a gap on this plan is
+closed; further work is genuinely new scope (more quiz-editing
+features, backend Postgres-integration tests — deferred by the project
+owner for now — etc.), not something tracked here as a gap.

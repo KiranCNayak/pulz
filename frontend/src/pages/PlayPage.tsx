@@ -1,11 +1,16 @@
+import { Check, CircleCheck, Clock, LoaderCircle, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AnswerGrid } from '@/components/AnswerGrid'
-import { toAnswerOptions } from '@/components/answerStyles'
-import { ConnectionErrorMessage } from '@/components/ConnectionErrorMessage'
+import { AnswerShape } from '@/components/AnswerShape'
+import { ANSWER_SLOT_STYLES, toAnswerOptions } from '@/components/answerStyles'
+import { Countdown } from '@/components/Countdown'
+import { GameStage } from '@/components/GameStage'
 import { Button } from '@/components/ui/button'
 import { getParticipantToken, setParticipantToken, useGameSocket } from '@/hooks/useGameSocket'
+import { questionDeadline } from '@/lib/questionTimer'
 import { getSocket } from '@/lib/socket'
+import { cn } from '@/lib/utils'
 
 type BackendOption = { id: string; text: string }
 
@@ -75,6 +80,8 @@ export function PlayPage() {
   const [role, setRole] = useState<'PLAYER' | 'SPECTATOR' | null>(null)
   const [promotionRequested, setPromotionRequested] = useState(false)
   const [question, setQuestion] = useState<QuestionBroadcast | null>(null)
+  const [deadline, setDeadline] = useState<number | null>(null)
+  const [displayName] = useState(() => localStorage.getItem('pulz:displayName'))
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null)
   // Server confirmation for the selected answer (`answer:ack`, DESIGN.md
   // §3) — until it arrives, the tap is only known to have left this
@@ -108,6 +115,7 @@ export function PlayPage() {
       // connection reconnecting mid-question used to land back in the
       // lobby with no way to see the active question).
       setQuestion(state.question)
+      setDeadline(questionDeadline(state.question, 'resumed'))
       setSelectedOptionId(state.answeredOptionId ?? null)
       setAnswerAcked(Boolean(state.answeredOptionId))
       setAnswerError(null)
@@ -129,6 +137,7 @@ export function PlayPage() {
     }
     function onQuestionBroadcast(payload: QuestionBroadcast) {
       setQuestion(payload)
+      setDeadline(questionDeadline(payload, 'live'))
       setSelectedOptionId(null)
       setAnswerAcked(false)
       setAnswerError(null)
@@ -198,59 +207,182 @@ export function PlayPage() {
   }
 
   if (phase === 'error') {
-    return <div className="p-6 text-destructive">{error}</div>
+    return (
+      <StageMessage>
+        <p className="text-xl font-semibold">{error}</p>
+        <Link to="/join" className="text-stage-muted underline underline-offset-4">
+          Back to join
+        </Link>
+      </StageMessage>
+    )
   }
   if (connectionError) {
-    return <ConnectionErrorMessage error={connectionError} />
-  }
-  if (phase === 'connecting' || phase === 'lobby') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
-        <p>Waiting for the host to start the game...</p>
-        {role === 'SPECTATOR' ? (
-          <Button onClick={handleRequestPromotion} disabled={promotionRequested}>
-            {promotionRequested ? 'Request sent' : 'Request to play'}
-          </Button>
+      <StageMessage>
+        <p className="text-xl font-semibold">{connectionError}</p>
+        <p className="text-stage-muted">Reload the page to try again.</p>
+      </StageMessage>
+    )
+  }
+  if (phase === 'connecting') {
+    return (
+      <StageMessage>
+        <LoaderCircle aria-hidden="true" className="size-10 motion-safe:animate-spin" />
+        <p className="text-lg">Connecting…</p>
+      </StageMessage>
+    )
+  }
+  if (phase === 'lobby') {
+    return (
+      <StageMessage>
+        <ShapeParade />
+        <h1 className="text-4xl font-black tracking-tight">You're in!</h1>
+        {displayName ? (
+          <p className="max-w-full truncate rounded-full bg-white/10 px-5 py-2 text-xl font-semibold">{displayName}</p>
         ) : null}
-      </div>
+        <p className="text-stage-muted">Waiting for the host to start the game...</p>
+        {role === 'SPECTATOR' ? (
+          <div className="mt-4 flex flex-col items-center gap-3">
+            <p className="text-sm text-stage-muted">The game already started, so you're spectating for now.</p>
+            <Button
+              size="lg"
+              className="bg-white text-stage hover:bg-white/90"
+              onClick={handleRequestPromotion}
+              disabled={promotionRequested}
+            >
+              {promotionRequested ? 'Request sent' : 'Request to play'}
+            </Button>
+          </div>
+        ) : null}
+      </StageMessage>
     )
   }
   if (phase === 'ended') {
-    return <div className="p-6">Game over — heading to results...</div>
+    return (
+      <StageMessage>
+        <LoaderCircle aria-hidden="true" className="size-10 motion-safe:animate-spin" />
+        <p className="text-lg">Game over — heading to results...</p>
+      </StageMessage>
+    )
+  }
+
+  if (phase === 'result' && result) {
+    const options = question ? toAnswerOptions(question.options) : []
+    const correctOption = options.find((o) => o.id === reveal?.correctOptionId)
+    const answered = Boolean(selectedOptionId)
+    const tone = result.isCorrect ? 'correct' : answered ? 'incorrect' : 'timeout'
+    const Icon = tone === 'correct' ? Check : tone === 'incorrect' ? X : Clock
+
+    return (
+      <div
+        className={cn(
+          'flex min-h-dvh flex-col items-center justify-center gap-5 p-6 text-center text-white',
+          tone === 'correct' && 'bg-stage-correct',
+          tone === 'incorrect' && 'bg-stage-incorrect',
+          tone === 'timeout' && 'bg-stage',
+        )}
+      >
+        <div className="grid size-24 place-items-center rounded-full bg-white/20 motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300">
+          <Icon aria-hidden="true" strokeWidth={3} className="size-14" />
+        </div>
+        <h1 className="text-5xl font-black tracking-tight">
+          {tone === 'correct' ? 'Correct!' : tone === 'incorrect' ? 'Not quite.' : "Time's up!"}
+        </h1>
+        <p className="rounded-full bg-black/20 px-6 py-2 text-2xl font-bold tabular-nums">+{result.pointsEarned} points</p>
+        <p className="text-lg font-medium">
+          Rank {result.myRank} of {result.totalPlayers}
+        </p>
+        {!result.isCorrect && correctOption ? (
+          <p className="flex items-center gap-2 rounded-xl bg-black/20 px-4 py-2 text-base">
+            <AnswerShape shape={correctOption.shape} className="size-5 shrink-0" />
+            <span>
+              Correct answer: <span className="font-semibold">{correctOption.label}</span>
+            </span>
+          </p>
+        ) : null}
+        <p className="mt-6 text-sm text-white/80">Waiting for the next question…</p>
+      </div>
+    )
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-4">
-      {question ? <h1 className="text-center text-xl font-semibold">{question.text}</h1> : null}
-      {role === 'SPECTATOR' ? (
-        <p className="text-center text-sm text-muted-foreground">Spectating — you can't answer this round.</p>
-      ) : null}
+    <GameStage>
+      <header className="flex items-center gap-3 px-4 pt-4">
+        {question ? (
+          <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold tabular-nums">
+            Q {question.index + 1}/{question.total}
+          </span>
+        ) : null}
+        {displayName ? <span className="min-w-0 truncate text-sm text-stage-muted">{displayName}</span> : null}
+        {question && deadline !== null ? (
+          <Countdown
+            className="ml-auto"
+            deadline={deadline}
+            durationSeconds={question.timeLimitSeconds}
+            stopped={phase !== 'question'}
+          />
+        ) : null}
+      </header>
+
       {question ? (
-        <AnswerGrid
-          options={toAnswerOptions(question.options)}
-          onSelect={handleSelect}
-          disabled={role !== 'PLAYER' || phase !== 'question' || Boolean(selectedOptionId)}
-        />
+        <h1 className="px-5 pt-4 pb-2 text-center text-2xl leading-tight font-bold [overflow-wrap:anywhere] sm:text-3xl">
+          {question.text}
+        </h1>
       ) : null}
-      {phase === 'question' && answerAcked ? (
-        <p className="text-center text-sm text-muted-foreground">Answer received — waiting for the host...</p>
-      ) : null}
-      {answerError && !result ? <p className="text-center text-sm text-destructive">{answerError}</p> : null}
-      {phase === 'locked' && !result ? <p className="text-center">Answers locked — revealing soon...</p> : null}
-      {reveal && phase === 'locked' && role === 'PLAYER' ? (
-        <p className="text-center text-sm text-muted-foreground">
-          Correct answer locked in — waiting for your result...
-        </p>
-      ) : null}
-      {phase === 'result' && result ? (
-        <div className="text-center">
-          <p className="text-lg font-semibold">{result.isCorrect ? 'Correct!' : 'Not quite.'}</p>
-          <p>+{result.pointsEarned} points</p>
-          <p>
-            Rank {result.myRank} of {result.totalPlayers}
-          </p>
+
+      <div className="flex min-h-14 items-center justify-center px-4 pt-1 pb-4 text-center text-sm" aria-live="polite">
+        {role === 'SPECTATOR' ? (
+          <span className="text-stage-muted">Spectating — you can't answer this round.</span>
+        ) : answerError && !result ? (
+          <span className="rounded-full bg-stage-incorrect px-4 py-1.5 font-medium">{answerError}</span>
+        ) : phase === 'locked' ? (
+          <span className="font-medium">Answers locked — revealing soon...</span>
+        ) : answerAcked ? (
+          <span className="flex items-center gap-2 rounded-full bg-white px-4 py-1.5 font-semibold text-stage">
+            <CircleCheck aria-hidden="true" className="size-4" />
+            Answer received — waiting for the host...
+          </span>
+        ) : selectedOptionId ? (
+          <span className="text-stage-muted">Sending your answer…</span>
+        ) : null}
+      </div>
+
+      {question ? (
+        <div className="flex flex-1 flex-col px-4 pb-4 sm:mx-auto sm:w-full sm:max-w-3xl">
+          <AnswerGrid
+            className="flex-1 auto-rows-fr"
+            stacked
+            options={toAnswerOptions(question.options)}
+            onSelect={handleSelect}
+            selectedOptionId={selectedOptionId}
+            disabled={role !== 'PLAYER' || phase !== 'question' || Boolean(selectedOptionId)}
+          />
         </div>
       ) : null}
+    </GameStage>
+  )
+}
+
+/** Centered single-message screen on the game stage (lobby, connecting,
+ * errors, end-of-game hand-off). */
+function StageMessage({ children }: { children: React.ReactNode }) {
+  return <GameStage className="items-center justify-center gap-4 p-6 text-center">{children}</GameStage>
+}
+
+/** The four answer shapes bobbing in turn — lobby "the game's about to
+ * start" flourish; static under prefers-reduced-motion. */
+function ShapeParade() {
+  return (
+    <div className="mb-2 flex gap-3" aria-hidden="true">
+      {ANSWER_SLOT_STYLES.map((s, i) => (
+        <div
+          key={s.shape}
+          className="grid size-12 place-items-center rounded-xl motion-safe:animate-bounce"
+          style={{ backgroundColor: s.color, animationDelay: `${i * 150}ms` }}
+        >
+          <AnswerShape shape={s.shape} className="size-6 text-white" />
+        </div>
+      ))}
     </div>
   )
 }

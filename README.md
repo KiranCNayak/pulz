@@ -63,11 +63,19 @@ be re-run freely — Decision #60.)
 
 | Join | Host controller |
 | --- | --- |
-| ![Join a game](docs/screenshots/join.jpg) | ![Host controller](docs/screenshots/host.jpg) |
+| ![Join a game](docs/screenshots/join.jpg) | ![Host controller after a question is locked](docs/screenshots/host.jpg) |
 
-| Display (cast) | Play |
+| Display — lobby | Display — question |
 | --- | --- |
-| ![Display view](docs/screenshots/display.jpg) | ![Player answering a question](docs/screenshots/play.jpg) |
+| ![Display lobby with the join code](docs/screenshots/display-lobby.jpg) | ![Display showing a live question](docs/screenshots/display.jpg) |
+
+| Play — question | Play — result |
+| --- | --- |
+| ![Player answering a question](docs/screenshots/play.jpg) | ![Player's correct-answer result screen](docs/screenshots/play-result.jpg) |
+
+| Display — podium |
+| --- |
+| ![Display end-of-game podium](docs/screenshots/display-podium.jpg) |
 
 | Results |
 | --- |

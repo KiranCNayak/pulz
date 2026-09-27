@@ -78,7 +78,12 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
     socketContexts.set(socket.id, { sessionId: session.id, role: "DISPLAY" });
     socket.join(baseRoom(session.id));
     socket.join(displayRoom(session.id));
-    socket.emit("display:auth_ok", { sessionId: session.id, status: session.status });
+    socket.emit("display:auth_ok", {
+      sessionId: session.id,
+      status: session.status,
+      joinCode: session.joinCode,
+      participants: lobbyParticipantList(session),
+    });
   });
 
   /**

@@ -14,7 +14,11 @@ import {
   useUpdateQuestion,
   useUpdateQuizTitle,
 } from '@/hooks/useQuiz'
-import { QUESTION_TIME_LIMIT_DEFAULT_SECONDS } from '@/lib/quizConstants'
+import {
+  QUESTION_TIME_LIMIT_DEFAULT_SECONDS,
+  RESULTS_TTL_DEFAULT_HOURS,
+  RESULTS_TTL_PRESET_HOURS,
+} from '@/lib/quizConstants'
 import { isQuestionValid } from '@/lib/quizValidation'
 import type { GameSession, Question, QuestionInput, Quiz } from '@/types/quiz'
 
@@ -59,6 +63,10 @@ function ExistingQuestionEditor({ quizId, question, index }: { quizId: string; q
   )
 }
 
+function formatHours(hours: number): string {
+  return hours === 1 ? '1 hour' : `${hours} hours`
+}
+
 // Session tokens (hostToken/displayToken) are returned exactly once by
 // POST /quizzes/:id/sessions (Decision #47) — held only in this
 // component's state, not persisted, since there's no way to fetch them
@@ -67,6 +75,7 @@ function StartSessionPanel({ quizId, canStart }: { quizId: string; canStart: boo
   const createSession = useCreateSession(quizId)
   const [session, setSession] = useState<GameSession | null>(null)
   const [copied, setCopied] = useState(false)
+  const [resultsTtlHours, setResultsTtlHours] = useState<number>(RESULTS_TTL_DEFAULT_HOURS)
 
   const copyJoinCode = async () => {
     if (!session) return
@@ -83,6 +92,9 @@ function StartSessionPanel({ quizId, canStart }: { quizId: string; canStart: boo
             <p className="text-sm text-muted-foreground">Session is live — join code</p>
             <p data-testid="session-join-code" className="font-mono text-2xl font-semibold tracking-widest">
               {session.joinCode}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Results stay available for {formatHours(session.resultsTtlHours)} after the game ends.
             </p>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={copyJoinCode}>
@@ -119,13 +131,33 @@ function StartSessionPanel({ quizId, canStart }: { quizId: string; canStart: boo
 
   return (
     <div className="space-y-2">
-      <Button
-        type="button"
-        disabled={!canStart || createSession.isPending}
-        onClick={() => createSession.mutate(undefined, { onSuccess: setSession })}
-      >
-        <Rocket /> {createSession.isPending ? 'Starting…' : 'Start session'}
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          disabled={!canStart || createSession.isPending}
+          onClick={() => createSession.mutate(resultsTtlHours, { onSuccess: setSession })}
+        >
+          <Rocket /> {createSession.isPending ? 'Starting…' : 'Start session'}
+        </Button>
+        {/* DESIGN.md §7: results auto-expire; the host picks how long. */}
+        <div className="flex items-center gap-2">
+          <Label htmlFor="results-ttl" className="text-sm font-normal text-muted-foreground">
+            Keep results for
+          </Label>
+          <select
+            id="results-ttl"
+            value={resultsTtlHours}
+            onChange={(e) => setResultsTtlHours(Number(e.target.value))}
+            className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm dark:bg-input/30"
+          >
+            {RESULTS_TTL_PRESET_HOURS.map((hours) => (
+              <option key={hours} value={hours}>
+                {formatHours(hours)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
       {!canStart && <p className="text-sm text-muted-foreground">Add at least one question first.</p>}
       {createSession.isError && (
         <p className="text-destructive text-sm">{(createSession.error as Error).message}</p>

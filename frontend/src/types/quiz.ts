@@ -55,4 +55,5 @@ export type GameSession = {
   displayToken: string
   status: 'LOBBY' | 'IN_PROGRESS' | 'ENDED'
   questionCount: number
+  resultsTtlHours: number
 }

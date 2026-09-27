@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { RESULTS_TTL_PRESET_HOURS, resolveResultsTtlHours } from "../domain/resultsTtl.js";
 import { shuffled } from "../domain/shuffle.js";
 import { allocateJoinCode, createSessionId, putSession } from "../domain/sessionStore.js";
 import { NotFoundError, ValidationError } from "./quiz.service.js";
@@ -20,7 +21,16 @@ function generateToken(): string {
  * question order (DESIGN.md §4, Decision #6 — shuffled once per session,
  * not per player).
  */
-export async function createGameSession(creatorId: string, quizId: string): Promise<GameSession> {
+export async function createGameSession(
+  creatorId: string,
+  quizId: string,
+  options: { resultsTtlHours?: unknown } = {},
+): Promise<GameSession> {
+  const resultsTtlHours = resolveResultsTtlHours(options.resultsTtlHours, env.resultsTtlHours);
+  if (resultsTtlHours === undefined) {
+    throw new ValidationError(`resultsTtlHours must be one of ${RESULTS_TTL_PRESET_HOURS.join(", ")}`);
+  }
+
   const quiz = await quizService.getQuizForCreator(creatorId, quizId);
   if (quiz.questions.length === 0) {
     throw new ValidationError("Quiz must have at least one question to start a session");
@@ -46,7 +56,7 @@ export async function createGameSession(creatorId: string, quizId: string): Prom
     participants: new Map(),
     participantTokens: new Map(),
     createdAt: Date.now(),
-    resultsTtlHours: env.resultsTtlHours,
+    resultsTtlHours,
   };
 
   putSession(session);

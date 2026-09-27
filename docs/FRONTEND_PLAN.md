@@ -209,6 +209,8 @@ items here as they're discovered — don't let this list go stale.
 - [x] Host and Display resume mid-game after a refresh (Decision #64) —
       previously a refreshed Host lost its Lock/Next controls and the game
       could not advance.
+- [x] Results retention picker (1 / 6 / 24 hours) on Start session
+      (Decision #65, PRD §3 / DESIGN.md §7).
 
 ## Status
 

@@ -62,10 +62,15 @@ export function useDeleteQuestion(quizId: string) {
 }
 
 // Starts a live session from this quiz (Decision #47's ?token= hand-off
-// consumes sessionId/hostToken/displayToken from here). No caching needed
-// — this is a one-shot action, not something re-fetched/invalidated.
+// consumes sessionId/hostToken/displayToken from here), keeping its results
+// for the chosen number of hours (DESIGN.md §7). No caching needed — this
+// is a one-shot action, not something re-fetched/invalidated.
 export function useCreateSession(quizId: string) {
   return useMutation({
-    mutationFn: () => apiFetch<GameSession>(`/quizzes/${quizId}/sessions`, { method: 'POST' }),
+    mutationFn: (resultsTtlHours: number) =>
+      apiFetch<GameSession>(`/quizzes/${quizId}/sessions`, {
+        method: 'POST',
+        body: JSON.stringify({ resultsTtlHours }),
+      }),
   })
 }

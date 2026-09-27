@@ -20,11 +20,16 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
   // Session creation requires an authenticated-as-Creator caller (PRD §8,
   // Decision #22: this endpoint is explicitly NOT part of the anonymous
   // attack surface, so it gets no extra rate limiting beyond normal auth).
-  app.post<{ Params: { id: string } }>("/quizzes/:id/sessions", async (request, reply) => {
+  // Optional JSON body: `{ resultsTtlHours: 1 | 6 | 24 }` (DESIGN.md §7) —
+  // a bodyless POST keeps the server default.
+  type CreateSessionRoute = { Params: { id: string }; Body: { resultsTtlHours?: unknown } | undefined };
+  app.post<CreateSessionRoute>("/quizzes/:id/sessions", async (request, reply) => {
     const creatorId = await requireCreatorId(request, reply);
     if (!creatorId) return;
     try {
-      const session = await sessionService.createGameSession(creatorId, request.params.id);
+      const session = await sessionService.createGameSession(creatorId, request.params.id, {
+        resultsTtlHours: request.body?.resultsTtlHours,
+      });
       reply.code(201).send({
         sessionId: session.id,
         joinCode: session.joinCode,
@@ -32,6 +37,7 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
         displayToken: session.displayToken,
         status: session.status,
         questionCount: session.questions.length,
+        resultsTtlHours: session.resultsTtlHours,
       });
     } catch (err) {
       if (err instanceof ValidationError) return reply.code(400).send({ error: err.message });

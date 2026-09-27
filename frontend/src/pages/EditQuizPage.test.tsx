@@ -44,6 +44,42 @@ describe('EditQuizPage — start session', () => {
     vi.unstubAllGlobals()
   })
 
+  it('sends the chosen results retention and confirms it (DESIGN.md §7)', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/quizzes/quiz-1') && init?.method === undefined) {
+        return new Response(JSON.stringify(QUIZ), { status: 200 })
+      }
+      if (url.endsWith('/quizzes/quiz-1/sessions') && init?.method === 'POST') {
+        const { resultsTtlHours } = JSON.parse(String(init.body))
+        return new Response(
+          JSON.stringify({
+            sessionId: 'session-1',
+            joinCode: 'ABC123',
+            hostToken: 'host-secret',
+            displayToken: 'display-secret',
+            status: 'LOBBY',
+            questionCount: 1,
+            resultsTtlHours,
+          }),
+          { status: 201 },
+        )
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderPage()
+    const retention = await screen.findByLabelText('Keep results for')
+    expect(retention).toHaveValue('24') // default
+    fireEvent.change(retention, { target: { value: '6' } })
+    fireEvent.click(screen.getByRole('button', { name: /start session/i }))
+
+    expect(await screen.findByText(/Results stay available for 6 hours/)).toBeInTheDocument()
+    const sessionCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/sessions'))!
+    expect(JSON.parse(String(sessionCall[1]?.body))).toEqual({ resultsTtlHours: 6 })
+  })
+
   it('starts a session and surfaces the join code and Host/Display links', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)

@@ -4,6 +4,11 @@
 // session.socket.ts is just the thin event-registration layer that calls
 // into this.
 //
+// A question locks for one of three reasons (DESIGN.md §2): the host locks
+// it, its timer expires, or every connected player has answered
+// (Decision #63) — answers are final once given, so there's nothing left to
+// wait for.
+//
 // State-machine note (confirmed with project owner): DESIGN.md's literal
 // three host-driven steps per question (lock -> reveal -> leaderboard,
 // each its own "host: next") are collapsed here into two:
@@ -85,7 +90,7 @@ function broadcastQuestion(io: Server, session: GameSession): void {
 
   const lockTimer = setTimeout(() => {
     // Auto-lock if the host hasn't already (timer expiry per DESIGN.md §2).
-    lockQuestion(io, session);
+    lockQuestion(io, session, "timer");
   }, question.timeLimitSeconds * 1000);
   lockTimer.unref();
 
@@ -141,10 +146,18 @@ export function submitAnswer(
   return { ok: true };
 }
 
-/** Locks the current question (host action or timer expiry), computes
- * the reveal + per-player results, and shows the leaderboard — all as
- * one step (see module-level note on the 2-click simplification). */
-export function lockQuestion(io: Server, session: GameSession): { ok: true } | { ok: false; error: string } {
+export type LockReason = "host" | "timer" | "all_answered";
+
+/** Locks the current question (host action, timer expiry, or everyone
+ * having answered), computes the reveal + per-player results, and shows the
+ * leaderboard — all as one step (see module-level note on the 2-click
+ * simplification). `reason` rides along on `question:locked` so screens can
+ * say "Time's up" vs "Everyone answered" without guessing from timing. */
+export function lockQuestion(
+  io: Server,
+  session: GameSession,
+  reason: LockReason = "host",
+): { ok: true } | { ok: false; error: string } {
   const current = session.current;
   if (!current || current.phase !== "ACTIVE") {
     return { ok: false, error: "No active question to lock" };
@@ -159,7 +172,7 @@ export function lockQuestion(io: Server, session: GameSession): { ok: true } | {
     if (answer && answer.selectedOptionId in tally) tally[answer.selectedOptionId]++;
   }
 
-  io.to(baseRoom(session.id)).emit("question:locked", { questionId: current.question.id });
+  io.to(baseRoom(session.id)).emit("question:locked", { questionId: current.question.id, reason });
   io.to(baseRoom(session.id)).emit("question:reveal", {
     questionId: current.question.id,
     correctOptionId: correctOption.id,
@@ -184,6 +197,23 @@ export function lockQuestion(io: Server, session: GameSession): { ok: true } | {
   io.to(controllerRoom(session.id)).to(displayRoom(session.id)).emit("leaderboard:update", { ranked });
 
   return { ok: true };
+}
+
+/** Locks the active question early once every *connected* player has
+ * answered (Decision #63). Connected only, so a player whose connection
+ * dropped can't hold the whole room until the timer runs out — call this
+ * after each accepted answer and after a player disconnects. Returns whether
+ * it locked. */
+export function lockIfEveryoneAnswered(io: Server, session: GameSession): boolean {
+  const current = session.current;
+  if (session.status !== "IN_PROGRESS" || !current || current.phase !== "ACTIVE") return false;
+
+  const players = [...session.participants.values()].filter((p) => p.role === "PLAYER" && p.connected);
+  if (players.length === 0) return false; // nobody left to wait for — the timer decides
+  if (players.some((p) => !p.answers.has(current.question.id))) return false;
+
+  lockQuestion(io, session, "all_answered");
+  return true;
 }
 
 /** Advances past the leaderboard: next question, or end-of-game if that

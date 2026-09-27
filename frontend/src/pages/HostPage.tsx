@@ -66,6 +66,15 @@ type PromotionRequest = { participantId: string; displayName: string }
 
 type QuestionPhase = 'ACTIVE' | 'LOCKED'
 
+// Mirrors backend gameLoop.service.ts's LockReason (sent on `question:locked`).
+type LockReason = 'host' | 'timer' | 'all_answered'
+
+const LOCK_LABEL: Record<LockReason, string> = {
+  host: 'Locked',
+  timer: "Time's up",
+  all_answered: 'Everyone answered',
+}
+
 const LEADERBOARD_LIMIT = 10
 
 /** Big, chunky "game button" treatment for the host's one primary action
@@ -115,6 +124,7 @@ export function HostPage() {
   const [question, setQuestion] = useState<QuestionBroadcast | null>(null)
   const [deadline, setDeadline] = useState<number | null>(null)
   const [phase, setPhase] = useState<QuestionPhase | null>(null)
+  const [lockReason, setLockReason] = useState<LockReason | null>(null)
   const [reveal, setReveal] = useState<QuestionReveal | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null)
   const [promotionRequests, setPromotionRequests] = useState<PromotionRequest[]>([])
@@ -140,12 +150,16 @@ export function HostPage() {
       setDeadline(questionDeadline(payload, 'live'))
       setPhase('ACTIVE')
       setReveal(null)
+      setLockReason(null)
       // Keep the previous standings visible while the next question runs —
       // the host wants them on hand, and the next lock replaces them.
       setActionError(null)
       setSnapshot((prev) => (prev ? { ...prev, status: 'IN_PROGRESS', currentQuestionIndex: payload.index } : prev))
     }
-    const onQuestionLocked = () => setPhase('LOCKED')
+    const onQuestionLocked = (payload: { reason?: LockReason }) => {
+      setPhase('LOCKED')
+      setLockReason(payload?.reason ?? null)
+    }
     const onQuestionReveal = (payload: QuestionReveal) => setReveal(payload)
     const onLeaderboardUpdate = (payload: { ranked: LeaderboardEntry[] }) => setLeaderboard(payload.ranked)
     const onPromotionIncoming = (payload: PromotionRequest) =>
@@ -315,6 +329,7 @@ export function HostPage() {
                 question={question}
                 deadline={deadline}
                 phase={phase}
+                lockReason={lockReason}
                 reveal={reveal}
                 onLock={() => socket.emit('host:lock_question')}
                 onNext={() => socket.emit('host:next_question')}
@@ -520,6 +535,7 @@ function QuestionPanel({
   question,
   deadline,
   phase,
+  lockReason,
   reveal,
   onLock,
   onNext,
@@ -527,6 +543,7 @@ function QuestionPanel({
   question: QuestionBroadcast
   deadline: number | null
   phase: QuestionPhase | null
+  lockReason: LockReason | null
   reveal: QuestionReveal | null
   onLock: () => void
   onNext: () => void
@@ -591,7 +608,13 @@ function QuestionPanel({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4 border-t bg-muted/40 px-6 py-4 sm:px-8 dark:bg-muted/20">
-        <PhaseStatus locked={locked} revealed={reveal !== null} totalAnswers={totalAnswers} isLast={isLast} />
+        <PhaseStatus
+          locked={locked}
+          lockReason={lockReason}
+          revealed={reveal !== null}
+          totalAnswers={totalAnswers}
+          isLast={isLast}
+        />
         {phase === 'ACTIVE' && (
           <Button type="button" className={cn(PRIMARY_ACTION_CLASS, 'w-full sm:w-auto')} onClick={onLock}>
             <Lock aria-hidden="true" className="size-5" />
@@ -611,11 +634,13 @@ function QuestionPanel({
 
 function PhaseStatus({
   locked,
+  lockReason,
   revealed,
   totalAnswers,
   isLast,
 }: {
   locked: boolean
+  lockReason: LockReason | null
   revealed: boolean
   totalAnswers: number | null
   isLast: boolean
@@ -629,7 +654,10 @@ function PhaseStatus({
         </span>
         <span>
           <span className="font-medium">Answers open</span>
-          <span className="text-muted-foreground"> — lock early, or it locks when time runs out.</span>
+          <span className="text-muted-foreground">
+            {' '}
+            — lock early, or it locks itself once everyone has answered or time runs out.
+          </span>
         </span>
       </div>
     )
@@ -639,7 +667,8 @@ function PhaseStatus({
       <Lock aria-hidden="true" className="size-4 text-muted-foreground" />
       <span>
         <span className="font-medium">
-          {revealed ? `Locked · ${totalAnswers} ${totalAnswers === 1 ? 'answer' : 'answers'}` : 'Locked'}
+          {LOCK_LABEL[lockReason ?? 'host']}
+          {revealed ? ` · ${totalAnswers} ${totalAnswers === 1 ? 'answer' : 'answers'}` : ''}
         </span>
         <span className="text-muted-foreground">
           {isLast ? ' — Next ends the game.' : ' — Next shows the following question.'}

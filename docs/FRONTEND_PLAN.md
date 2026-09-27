@@ -204,6 +204,8 @@ items here as they're discovered — don't let this list go stale.
       the same layout as the projector; portrait-phone overflow audit
       (Results podium, result hint, lobby name fixed); late joiners can
       now request to play from the question screen.
+- [x] Questions close as soon as every connected player has answered
+      (Decision #63), with the lock reason shown on Display and Host.
 
 ## Status
 

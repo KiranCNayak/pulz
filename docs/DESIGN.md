@@ -93,7 +93,8 @@ Per-question sub-state while `IN_PROGRESS`:
 
 ```
 QUESTION_ACTIVE (timer running, accepting answers)
-        │  timer expires OR host force-advances
+        │  timer expires OR host locks OR every connected
+        │  player has answered (Decision #63)
         ▼
 QUESTION_LOCKED (no more answers accepted, compute scores)
         │  host: next
@@ -118,7 +119,7 @@ client to server):
 | `question:broadcast` | → H, P, S | `{questionId, text, options[shape/color, no correctness], timeLimitSeconds, serverStartTime}` |
 | `answer:submit` | P → server | `{participantId, questionId, selectedOptionId, clientTimestamp}` |
 | `answer:ack` | → P (submitter only) | `{received: true}` (no correctness yet) |
-| `question:locked` | → H, P, S | `{questionId}` |
+| `question:locked` | → H, P, S | `{questionId, reason: 'host' \| 'timer' \| 'all_answered'}` |
 | `question:reveal` | → H, P, S | `{questionId, correctOptionId, tally per option}` |
 | `answer:result` | → P (per player) | `{isCorrect, pointsEarned, myRank, totalPlayers}` |
 | `leaderboard:update` (host only, full) | → H | `{ranked: [{participantId, displayName, score}]}` |

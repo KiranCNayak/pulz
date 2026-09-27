@@ -108,6 +108,20 @@ describe('DisplayPage', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
+  it.each([
+    ['timer', /Time.s up/],
+    ['all_answered', 'Everyone answered!'],
+  ] as const)("labels a '%s' lock from the server's reason", (reason, label) => {
+    renderDisplayPage('/display/session-1?token=display-token')
+    act(() => {
+      fakeSocket.emit('display:auth_ok', { sessionId: 'session-1', status: 'LOBBY', joinCode: 'ABC123' })
+      fakeSocket.emit('question:broadcast', QUESTION)
+      fakeSocket.emit('question:locked', { questionId: 'q1', reason })
+    })
+    expect(screen.getByText(label)).toBeInTheDocument()
+    expect(screen.queryByText('Answers locked')).not.toBeInTheDocument()
+  })
+
   it('shows the reveal and the leaderboard together once a question locks, then the podium', () => {
     renderDisplayPage('/display/session-1?token=display-token')
 
@@ -118,7 +132,7 @@ describe('DisplayPage', () => {
 
     // Same order the backend's lockQuestion emits them in, in one tick.
     act(() => {
-      fakeSocket.emit('question:locked', { questionId: 'q1' })
+      fakeSocket.emit('question:locked', { questionId: 'q1', reason: 'host' })
       fakeSocket.emit('question:reveal', { questionId: 'q1', correctOptionId: 'b', tally: { a: 1, b: 2 } })
       fakeSocket.emit('leaderboard:update', {
         ranked: [
@@ -132,7 +146,7 @@ describe('DisplayPage', () => {
     // The room still sees the question's answers (with the right one
     // marked) instead of jumping straight to a full-screen leaderboard.
     expect(screen.getByText('2 of 3 got it right!')).toBeInTheDocument()
-    // Host locked well before the 20s timer ran out — not "Time's up".
+    // The host locked it (server-sent reason) — not "Time's up".
     expect(screen.getByText('Answers locked')).toBeInTheDocument()
     expect(screen.queryByText(/Time.s up/)).not.toBeInTheDocument()
     expect(screen.getByText('4')).toBeInTheDocument()

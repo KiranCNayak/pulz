@@ -28,6 +28,13 @@ test('player reconnecting mid-question and after lock rehydrates instead of rese
   const playerPage = await playerContext.newPage()
   await joinAsPlayer(playerPage, joinCode, playerName)
 
+  // A second player who never answers keeps the question open while the
+  // first one reloads — otherwise the first answer would close it at once
+  // (Decision #63) and there'd be no "mid-question" to reconnect into.
+  const bystanderContext = await browser.newContext()
+  const bystanderPage = await bystanderContext.newPage()
+  await joinAsPlayer(bystanderPage, joinCode, `Bystander-${Date.now()}`)
+
   await expect(hostPage.getByText(playerName)).toBeVisible()
   await hostPage.getByRole('button', { name: 'Start game' }).click()
   await expect(playerPage.getByText('What is 2 + 2?')).toBeVisible()
@@ -45,7 +52,8 @@ test('player reconnecting mid-question and after lock rehydrates instead of rese
   await expect(playerPage.getByRole('button', { name: '4', exact: true })).toBeDisabled()
   await expect(playerPage.getByText(/Answer received/)).toBeVisible()
 
-  // Host locks while the player is on the just-reloaded page.
+  // Host locks (the bystander still owes an answer) while the player is on
+  // the just-reloaded page — also keeps the manual-lock path covered.
   await hostPage.getByRole('button', { name: 'Lock question' }).click()
   await expect(playerPage.getByText('Correct!')).toBeVisible()
 
@@ -53,9 +61,10 @@ test('player reconnecting mid-question and after lock rehydrates instead of rese
   // rehydrate the result screen, not the lobby or the stale question.
   await playerPage.reload()
   await expect(playerPage.getByText('Correct!')).toBeVisible()
-  await expect(playerPage.getByText('Rank 1 of 1')).toBeVisible()
+  await expect(playerPage.getByText('Rank 1 of 2')).toBeVisible()
 
   await creatorContext.close()
   await hostContext.close()
   await playerContext.close()
+  await bystanderContext.close()
 })

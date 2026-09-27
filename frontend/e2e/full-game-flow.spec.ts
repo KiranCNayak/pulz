@@ -45,13 +45,11 @@ test('full game flow: create, host, play, and view results', async ({ browser })
 
   const answerButton = playerPage.getByRole('button', { name: '4', exact: true })
   await answerButton.click()
-  // Host and Player are independent socket connections with no ordering
-  // guarantee between them, so wait for the server's answer:ack (surfaced
-  // on the player's screen) before the host locks — deterministic, unlike
-  // a fixed sleep. Real hosts always have human reaction time here.
-  await expect(playerPage.getByText(/Answer received/)).toBeVisible()
 
-  await hostPage.getByRole('button', { name: 'Lock question' }).click()
+  // The only player has answered, so the question closes by itself — no
+  // host click, no waiting out the timer (Decision #63).
+  await expect(hostPage.getByText(/Everyone answered/)).toBeVisible()
+  await expect(displayPage.getByText('Everyone answered!')).toBeVisible()
 
   // Server-authoritative scoring feedback on the player's own screen.
   // Points earned depend on the time-bracket scoring model (PRD §5) —

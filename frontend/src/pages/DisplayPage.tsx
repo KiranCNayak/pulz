@@ -52,6 +52,9 @@ type LeaderboardEntry = {
  * derived client-side, purely for the reveal's "+points / climbed" flair. */
 type Standing = LeaderboardEntry & { gained: number; rankChange: number }
 
+// Mirrors backend gameLoop.service.ts's LockReason.
+type LockReason = 'host' | 'timer' | 'all_answered'
+
 type QuestionPhase = 'active' | 'locked'
 
 const LEADERBOARD_SIZE = 5
@@ -87,9 +90,9 @@ export function DisplayPage() {
   const [participants, setParticipants] = useState<LobbyParticipant[]>([])
   const [question, setQuestion] = useState<QuestionBroadcast | null>(null)
   const [deadline, setDeadline] = useState(0)
-  // When the lock arrived — tells a timer-expiry auto-lock ("Time's up")
-  // apart from the host locking early.
-  const [lockedAt, setLockedAt] = useState<number | null>(null)
+  // Why the question closed (server-sent on `question:locked`, Decision #63)
+  // — drives the "Time's up" / "Everyone answered!" / "Answers locked" badge.
+  const [lockReason, setLockReason] = useState<LockReason | null>(null)
   const [phase, setPhase] = useState<QuestionPhase>('active')
   const [reveal, setReveal] = useState<RevealPayload | null>(null)
   const [standings, setStandings] = useState<Standing[] | null>(null)
@@ -115,14 +118,14 @@ export function DisplayPage() {
     function handleQuestion(payload: QuestionBroadcast) {
       setQuestion(payload)
       setDeadline(questionDeadline(payload, 'live'))
-      setLockedAt(null)
+      setLockReason(null)
       setPhase('active')
       setReveal(null)
       setSessionStatus('IN_PROGRESS')
     }
-    function handleLocked() {
+    function handleLocked(payload: { reason?: LockReason }) {
       setPhase('locked')
-      setLockedAt(Date.now())
+      setLockReason(payload?.reason ?? null)
     }
     function handleReveal(payload: RevealPayload) {
       setReveal(payload)
@@ -193,10 +196,7 @@ export function DisplayPage() {
   }
 
   if (phase === 'locked') {
-    // 1s tolerance: the server's auto-lock and this client's deadline are
-    // anchored a network hop apart (see lib/questionTimer.ts).
-    const timeRanOut = lockedAt !== null && lockedAt >= deadline - 1000
-    return <RevealScreen question={question} reveal={reveal} standings={standings} timeRanOut={timeRanOut} />
+    return <RevealScreen question={question} reveal={reveal} standings={standings} lockReason={lockReason} />
   }
 
   return <QuestionScreen question={question} deadline={deadline} />
@@ -357,12 +357,12 @@ function RevealScreen({
   question,
   reveal,
   standings,
-  timeRanOut,
+  lockReason,
 }: {
   question: QuestionBroadcast
   reveal: RevealPayload | null
   standings: Standing[] | null
-  timeRanOut: boolean
+  lockReason: LockReason | null
 }) {
   const matchingReveal = reveal && reveal.questionId === question.questionId ? reveal : null
   const correctCount = matchingReveal ? (matchingReveal.tally[matchingReveal.correctOptionId] ?? 0) : null
@@ -375,10 +375,16 @@ function RevealScreen({
         <div
           className={cn(
             'rounded-full px-7 py-3 text-3xl font-black tracking-wide uppercase shadow-[0_5px_0_rgb(0_0_0/0.3)]',
-            timeRanOut ? 'bg-stage-incorrect' : 'bg-white/15',
+            lockReason === 'timer' ? 'bg-stage-incorrect' : lockReason === 'all_answered' ? 'bg-stage-correct' : 'bg-white/15',
           )}
         >
-          {timeRanOut ? <>Time&rsquo;s up</> : 'Answers locked'}
+          {lockReason === 'timer' ? (
+            <>Time&rsquo;s up</>
+          ) : lockReason === 'all_answered' ? (
+            'Everyone answered!'
+          ) : (
+            'Answers locked'
+          )}
         </div>
       </header>
 

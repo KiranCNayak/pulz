@@ -70,13 +70,10 @@ test('player survives a transport-level drop without reloading the page', async 
   await expect(playerPage.getByText('What is 2 + 2?')).toBeVisible()
   const answerButton = playerPage.getByRole('button', { name: '4', exact: true })
   await answerButton.click()
-  // Player and Host are two independent socket connections with no
-  // ordering guarantee between them — wait for the server's answer:ack on
-  // the freshly-reconnected player socket before the host (on its own,
-  // stable connection) locks, instead of guessing with a fixed sleep.
-  await expect(playerPage.getByText(/Answer received/)).toBeVisible()
 
-  await hostPage.getByRole('button', { name: 'Lock question' }).click()
+  // The only player answering closes the question by itself (Decision
+  // #63) — which only happens if the server counts the freshly-reconnected
+  // socket as this participant, still connected.
   await expect(playerPage.getByText('Correct!')).toBeVisible()
 
   await creatorContext.close()

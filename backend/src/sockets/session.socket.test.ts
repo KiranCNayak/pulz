@@ -151,9 +151,10 @@ describe("disconnect guard (session.socket.ts)", () => {
     expect(participant.connected).toBe(true);
     expect(participant.socketId).toBe(clientB.id);
 
-    // End-to-end consequence: lockQuestion only sends `answer:result` to
-    // connected players, so without the guard B would answer correctly
-    // and then never hear back.
+    // End-to-end consequence: B is the only connected player, so answering
+    // closes the question on its own (Decision #63) and B gets a result.
+    // Without the guard B would count as disconnected — nothing would lock
+    // and no `answer:result` would ever arrive.
     const host = await connect();
     host.emit("host:auth", { sessionId: session.id, hostToken: session.hostToken });
     await waitFor(host, "host:auth_ok");
@@ -162,13 +163,52 @@ describe("disconnect guard (session.socket.ts)", () => {
     host.emit("game:start");
     const { questionId } = await broadcast;
 
-    clientB.emit("answer:submit", { questionId, selectedOptionId: "q1-a" });
-    await waitFor(clientB, "answer:ack");
-
+    // Arm every listener before emitting: ack, lock and result can land in
+    // the same tick.
+    const ack = waitFor(clientB, "answer:ack");
     const result = waitFor<{ isCorrect: boolean; pointsEarned: number }>(clientB, "answer:result");
-    host.emit("host:lock_question");
+    clientB.emit("answer:submit", { questionId, selectedOptionId: "q1-a" });
+    await ack;
     const answerResult = await result;
     expect(answerResult.isCorrect).toBe(true);
     expect(answerResult.pointsEarned).toBeGreaterThan(0);
+  });
+});
+
+describe("auto-lock once everyone has answered (Decision #63)", () => {
+  it("keeps the question open until the last connected player answers, then reveals to all", async () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+
+    const players = [];
+    for (const name of ["Alex", "Sam"]) {
+      const client = await connect();
+      client.emit("join:request", { joinCode: session.joinCode, displayName: name });
+      await waitFor(client, "join:accepted");
+      players.push(client);
+    }
+    const [alex, sam] = players;
+
+    const host = await connect();
+    host.emit("host:auth", { sessionId: session.id, hostToken: session.hostToken });
+    await waitFor(host, "host:auth_ok");
+    const broadcast = waitFor<{ questionId: string }>(alex, "question:broadcast");
+    host.emit("game:start");
+    const { questionId } = await broadcast;
+
+    // First answer: Sam still owes one, so the question stays open.
+    const alexAck = waitFor(alex, "answer:ack");
+    alex.emit("answer:submit", { questionId, selectedOptionId: "q1-a" });
+    await alexAck;
+    expect(session.current?.phase).toBe("ACTIVE");
+
+    // Last answer closes it — no host click, no timer.
+    const locked = waitFor<{ reason: string }>(host, "question:locked");
+    const alexResult = waitFor<{ isCorrect: boolean }>(alex, "answer:result");
+    const samResult = waitFor<{ isCorrect: boolean }>(sam, "answer:result");
+    sam.emit("answer:submit", { questionId, selectedOptionId: "q1-b" });
+
+    expect((await locked).reason).toBe("all_answered");
+    expect((await alexResult).isCorrect).toBe(true);
+    expect((await samResult).isCorrect).toBe(false);
   });
 });

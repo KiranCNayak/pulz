@@ -11,7 +11,14 @@ vi.mock("./results.service.js", () => ({
   writeResultsSnapshot: writeResultsSnapshotMock,
 }));
 
-import { advance, buildResumeSnapshot, lockQuestion, startGame, submitAnswer } from "./gameLoop.service.js";
+import {
+  advance,
+  buildResumeSnapshot,
+  lockIfEveryoneAnswered,
+  lockQuestion,
+  startGame,
+  submitAnswer,
+} from "./gameLoop.service.js";
 import { createParticipant } from "./join.service.js";
 import type { GameSession, SnapshotQuestion } from "../types/session.js";
 
@@ -221,6 +228,93 @@ describe("lockQuestion", () => {
     lockQuestion(io, session);
 
     expect(emitted.some((e) => e.event === "answer:result" && e.rooms.includes("socket-sam"))).toBe(false);
+  });
+});
+
+describe("lockIfEveryoneAnswered (Decision #63)", () => {
+  function lockedEvent(emitted: ReturnType<typeof createFakeIo>["emitted"]) {
+    return emitted.find((e) => e.event === "question:locked")?.payload as { reason: string } | undefined;
+  }
+
+  it("waits while a connected player hasn't answered, then locks the moment the last one does", () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const { io, emitted } = createFakeIo();
+    startGame(io, session);
+    const alex = createParticipant(session, "Alex", "PLAYER");
+    const sam = createParticipant(session, "Sam", "PLAYER");
+
+    submitAnswer(session, alex, "q1", "q1-a");
+    expect(lockIfEveryoneAnswered(io, session)).toBe(false);
+    expect(session.current?.phase).toBe("ACTIVE");
+
+    submitAnswer(session, sam, "q1", "q1-b");
+    expect(lockIfEveryoneAnswered(io, session)).toBe(true);
+    expect(session.current?.phase).toBe("LOCKED");
+    expect(lockedEvent(emitted)?.reason).toBe("all_answered");
+  });
+
+  it("doesn't wait for disconnected players or spectators", () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const { io } = createFakeIo();
+    startGame(io, session);
+    const alex = createParticipant(session, "Alex", "PLAYER");
+    createParticipant(session, "Dropped", "PLAYER").connected = false;
+    createParticipant(session, "Watcher", "SPECTATOR");
+
+    submitAnswer(session, alex, "q1", "q1-a");
+    expect(lockIfEveryoneAnswered(io, session)).toBe(true);
+  });
+
+  it("locks when the only player still owing an answer disconnects", () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const { io } = createFakeIo();
+    startGame(io, session);
+    const alex = createParticipant(session, "Alex", "PLAYER");
+    const sam = createParticipant(session, "Sam", "PLAYER");
+    submitAnswer(session, alex, "q1", "q1-a");
+    expect(lockIfEveryoneAnswered(io, session)).toBe(false);
+
+    sam.connected = false; // what the socket disconnect handler does before re-checking
+    expect(lockIfEveryoneAnswered(io, session)).toBe(true);
+  });
+
+  it("never locks with no connected players — the timer decides then", () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const { io } = createFakeIo();
+    startGame(io, session);
+    createParticipant(session, "Gone", "PLAYER").connected = false;
+
+    expect(lockIfEveryoneAnswered(io, session)).toBe(false);
+    expect(session.current?.phase).toBe("ACTIVE");
+  });
+
+  it("does nothing once the question is already locked", () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const { io, emitted } = createFakeIo();
+    startGame(io, session);
+    const alex = createParticipant(session, "Alex", "PLAYER");
+    submitAnswer(session, alex, "q1", "q1-a");
+    lockQuestion(io, session, "host");
+
+    expect(lockIfEveryoneAnswered(io, session)).toBe(false);
+    expect(emitted.filter((e) => e.event === "question:locked")).toHaveLength(1);
+    expect(lockedEvent(emitted)?.reason).toBe("host");
+  });
+
+  it("tags a timer-expiry lock with reason 'timer'", () => {
+    vi.useFakeTimers();
+    try {
+      const session = makeSession([makeQuestion("q1", "q1-a", 5)]);
+      const { io, emitted } = createFakeIo();
+      startGame(io, session);
+      createParticipant(session, "Alex", "PLAYER"); // never answers
+
+      vi.advanceTimersByTime(5000);
+      expect(session.current?.phase).toBe("LOCKED");
+      expect(lockedEvent(emitted)?.reason).toBe("timer");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

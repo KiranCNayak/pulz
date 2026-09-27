@@ -171,7 +171,7 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
   socket.on("host:lock_question", () => {
     const { session } = requireHost(socket);
     if (!session) return;
-    const result = gameLoop.lockQuestion(io, session);
+    const result = gameLoop.lockQuestion(io, session, "host");
     if (!result.ok) socket.emit("host:error", { error: result.error });
   });
 
@@ -201,6 +201,9 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
         return;
       }
       socket.emit("answer:ack", { received: true });
+      // Ack first, so the last player to answer still sees "Answer
+      // received" before the reveal lands.
+      gameLoop.lockIfEveryoneAnswered(io, session);
     },
   );
 
@@ -245,7 +248,11 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
     // old one's disconnect is processed (separate transports, no ordering
     // guarantee), and clobbering `connected` then would make lockQuestion
     // skip this player's `answer:result` despite a live connection.
-    if (participant && participant.socketId === socket.id) participant.connected = false;
+    if (participant && participant.socketId === socket.id) {
+      participant.connected = false;
+      // The one player everyone was waiting on may just have dropped.
+      if (session) gameLoop.lockIfEveryoneAnswered(io, session);
+    }
   });
 }
 

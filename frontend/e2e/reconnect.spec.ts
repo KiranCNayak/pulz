@@ -31,11 +31,16 @@ test('player reconnecting mid-question and after lock rehydrates instead of rese
   // A second player who never answers keeps the question open while the
   // first one reloads — otherwise the first answer would close it at once
   // (Decision #63) and there'd be no "mid-question" to reconnect into.
+  const bystanderName = `Bystander-${Date.now()}`
   const bystanderContext = await browser.newContext()
   const bystanderPage = await bystanderContext.newPage()
-  await joinAsPlayer(bystanderPage, joinCode, `Bystander-${Date.now()}`)
+  await joinAsPlayer(bystanderPage, joinCode, bystanderName)
 
+  // Both must be in the lobby before the start — anyone joining after it
+  // becomes a spectator, which would leave one player whose answer closes
+  // the question immediately.
   await expect(hostPage.getByText(playerName)).toBeVisible()
+  await expect(hostPage.getByText(bystanderName)).toBeVisible()
   await hostPage.getByRole('button', { name: 'Start game' }).click()
   await expect(playerPage.getByText('What is 2 + 2?')).toBeVisible()
 
@@ -67,4 +72,39 @@ test('player reconnecting mid-question and after lock rehydrates instead of rese
   await hostContext.close()
   await playerContext.close()
   await bystanderContext.close()
+})
+
+// Decision #64: a Host refreshing mid-game used to come back with no
+// question and no Lock/Next buttons — the game could never advance again.
+test('host refreshing mid-question keeps control of the game', async ({ browser }) => {
+  const creatorContext = await browser.newContext()
+  const creatorPage = await creatorContext.newPage()
+  const { joinCode, hostHref } = await createQuizAndStartSession(creatorPage, `Host Refresh Quiz ${Date.now()}`)
+
+  const hostContext = await browser.newContext()
+  const hostPage = await hostContext.newPage()
+  await hostPage.goto(hostHref)
+
+  const playerName = `Host-${Date.now()}` // names cap at 24 chars
+  const playerContext = await browser.newContext()
+  const playerPage = await playerContext.newPage()
+  await joinAsPlayer(playerPage, joinCode, playerName)
+  await expect(hostPage.getByText(playerName)).toBeVisible()
+
+  await hostPage.getByRole('button', { name: 'Start game' }).click()
+  await expect(playerPage.getByText('What is 2 + 2?')).toBeVisible()
+
+  await hostPage.reload()
+  await expect(hostPage.getByText('What is 2 + 2?')).toBeVisible()
+  await hostPage.getByRole('button', { name: 'Lock question' }).click()
+  await expect(playerPage.getByText("Time's up!")).toBeVisible() // player never answered
+
+  await hostPage.reload()
+  await hostPage.getByRole('button', { name: 'Next' }).click() // only question — ends the game
+  await expect(hostPage.getByText('Game ended.')).toBeVisible()
+  await expect(playerPage).toHaveURL(/\/results\/.+/)
+
+  await creatorContext.close()
+  await hostContext.close()
+  await playerContext.close()
 })

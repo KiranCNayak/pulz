@@ -122,6 +122,21 @@ describe('DisplayPage', () => {
     expect(screen.queryByText('Answers locked')).not.toBeInTheDocument()
   })
 
+  it('jumps straight to the live question after a mid-game refresh', () => {
+    renderDisplayPage('/display/session-1?token=display-token')
+    act(() => {
+      fakeSocket.emit('display:auth_ok', {
+        sessionId: 'session-1',
+        status: 'IN_PROGRESS',
+        joinCode: 'ABC123',
+        live: { question: { ...QUESTION, phase: 'ACTIVE' }, lockReason: null, reveal: null, ranked: null },
+      })
+    })
+
+    expect(screen.getByText('What is 2 + 2?')).toBeInTheDocument()
+    expect(screen.queryByText(/Game in progress/)).not.toBeInTheDocument()
+  })
+
   it('shows the reveal and the leaderboard together once a question locks, then the podium', () => {
     renderDisplayPage('/display/session-1?token=display-token')
 

@@ -53,6 +53,7 @@ function hostSnapshot(session: GameSession) {
     questionCount: session.questions.length,
     currentQuestionIndex: session.currentQuestionIndex,
     participants: lobbyParticipantList(session),
+    live: gameLoop.buildScreenSnapshot(session),
   };
 }
 
@@ -83,6 +84,7 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
       status: session.status,
       joinCode: session.joinCode,
       participants: lobbyParticipantList(session),
+      live: gameLoop.buildScreenSnapshot(session),
     });
   });
 

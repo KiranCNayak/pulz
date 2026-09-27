@@ -14,6 +14,7 @@ vi.mock("./results.service.js", () => ({
 import {
   advance,
   buildResumeSnapshot,
+  buildScreenSnapshot,
   lockIfEveryoneAnswered,
   lockQuestion,
   startGame,
@@ -432,5 +433,74 @@ describe("buildResumeSnapshot", () => {
 
     expect(snapshot.reveal?.correctOptionId).toBe("q1-a");
     expect(snapshot.result).toBeNull();
+  });
+});
+
+describe("buildScreenSnapshot (Host/Display resume, Decision #64)", () => {
+  it("is empty in the lobby", () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    expect(buildScreenSnapshot(session)).toEqual({
+      question: null,
+      lockReason: null,
+      reveal: null,
+      ranked: null,
+      resultsUrl: null,
+    });
+  });
+
+  it("restores an active question without leaking the correct answer", () => {
+    const session = makeSession([makeQuestion("q1", "q1-a"), makeQuestion("q2", "q2-a")]);
+    const { io } = createFakeIo();
+    startGame(io, session);
+    createParticipant(session, "Alex", "PLAYER");
+
+    const snap = buildScreenSnapshot(session);
+    expect(snap.question).toMatchObject({ questionId: "q1", phase: "ACTIVE", index: 0, total: 2 });
+    expect(snap.reveal).toBeNull();
+    expect(snap.ranked).toBeNull(); // nothing scored yet
+    expect(JSON.stringify(snap)).not.toContain("isCorrect");
+  });
+
+  it("restores a locked question's reveal, lock reason and standings", () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const { io } = createFakeIo();
+    startGame(io, session);
+    const alex = createParticipant(session, "Alex", "PLAYER");
+    submitAnswer(session, alex, "q1", "q1-a");
+    lockIfEveryoneAnswered(io, session);
+
+    const snap = buildScreenSnapshot(session);
+    expect(snap.question).toMatchObject({ questionId: "q1", phase: "LOCKED" });
+    expect(snap.lockReason).toBe("all_answered");
+    expect(snap.reveal).toEqual({ questionId: "q1", correctOptionId: "q1-a", tally: { "q1-a": 1, "q1-b": 0 } });
+    expect(snap.ranked?.[0]).toMatchObject({ participantId: alex.id, rank: 1 });
+  });
+
+  it("keeps standings from earlier questions while a later one is active", async () => {
+    const session = makeSession([makeQuestion("q1", "q1-a"), makeQuestion("q2", "q2-a")]);
+    const { io } = createFakeIo();
+    startGame(io, session);
+    const alex = createParticipant(session, "Alex", "PLAYER");
+    submitAnswer(session, alex, "q1", "q1-a");
+    lockQuestion(io, session, "host");
+    await advance(io, session);
+
+    const snap = buildScreenSnapshot(session);
+    expect(snap.question).toMatchObject({ questionId: "q2", phase: "ACTIVE" });
+    expect(snap.ranked?.[0].score).toBeGreaterThan(0);
+  });
+
+  it("points an ended game at its results", async () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const { io } = createFakeIo();
+    startGame(io, session);
+    createParticipant(session, "Alex", "PLAYER");
+    lockQuestion(io, session, "host");
+    await advance(io, session);
+
+    const snap = buildScreenSnapshot(session);
+    expect(snap.question).toBeNull();
+    expect(snap.resultsUrl).toBe(`/results/${session.id}`);
+    expect(snap.ranked).toHaveLength(1);
   });
 });

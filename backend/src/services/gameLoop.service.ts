@@ -22,12 +22,16 @@ import { shuffled } from "../domain/shuffle.js";
 import { releaseJoinCode } from "../domain/sessionStore.js";
 import { writeResultsSnapshot } from "./results.service.js";
 import type {
+  ActiveQuestionState,
   AnswerRecord,
   GameSession,
+  LockReason,
   Participant,
   PodiumEntry,
   SnapshotQuestion,
 } from "../types/session.js";
+
+export type { LockReason };
 
 export function baseRoom(sessionId: string): string {
   return sessionId;
@@ -72,6 +76,33 @@ function rankPlayers(session: GameSession): PodiumEntry[] {
   return ranked;
 }
 
+/** The `question:broadcast` payload for the current question (also the
+ * base of every resume snapshot, so screens hydrate through the same code
+ * path as the live event). */
+function questionPayload(session: GameSession, current: ActiveQuestionState) {
+  return {
+    questionId: current.question.id,
+    text: current.question.text,
+    mediaUrl: current.question.mediaUrl,
+    options: publicOptions(current.question, current.optionOrder),
+    timeLimitSeconds: current.question.timeLimitSeconds,
+    serverStartTime: current.broadcastAt,
+    index: current.index,
+    total: session.questions.length,
+  };
+}
+
+/** The `question:reveal` payload: correct option + per-option answer tally. */
+function revealPayload(session: GameSession, current: ActiveQuestionState) {
+  const correctOption = current.question.options.find((o) => o.isCorrect)!;
+  const tally: Record<string, number> = Object.fromEntries(current.optionOrder.map((id) => [id, 0]));
+  for (const p of session.participants.values()) {
+    const answer = p.answers.get(current.question.id);
+    if (answer && answer.selectedOptionId in tally) tally[answer.selectedOptionId]++;
+  }
+  return { questionId: current.question.id, correctOptionId: correctOption.id, tally };
+}
+
 /** Starts the game: LOBBY -> IN_PROGRESS, then broadcasts question 0.
  * Only valid from LOBBY. */
 export function startGame(io: Server, session: GameSession): { ok: true } | { ok: false; error: string } {
@@ -96,16 +127,7 @@ function broadcastQuestion(io: Server, session: GameSession): void {
 
   session.current = { index: session.currentQuestionIndex, question, optionOrder, phase: "ACTIVE", broadcastAt, lockTimer };
 
-  io.to(baseRoom(session.id)).emit("question:broadcast", {
-    questionId: question.id,
-    text: question.text,
-    mediaUrl: question.mediaUrl,
-    options: publicOptions(question, optionOrder),
-    timeLimitSeconds: question.timeLimitSeconds,
-    serverStartTime: broadcastAt,
-    index: session.currentQuestionIndex,
-    total: session.questions.length,
-  });
+  io.to(baseRoom(session.id)).emit("question:broadcast", questionPayload(session, session.current));
 }
 
 /** Validates and records one player's answer (DESIGN.md §5). Pure
@@ -146,8 +168,6 @@ export function submitAnswer(
   return { ok: true };
 }
 
-export type LockReason = "host" | "timer" | "all_answered";
-
 /** Locks the current question (host action, timer expiry, or everyone
  * having answered), computes the reveal + per-player results, and shows the
  * leaderboard — all as one step (see module-level note on the 2-click
@@ -164,20 +184,10 @@ export function lockQuestion(
   }
   clearTimeout(current.lockTimer);
   current.phase = "LOCKED";
-
-  const correctOption = current.question.options.find((o) => o.isCorrect)!;
-  const tally: Record<string, number> = Object.fromEntries(current.optionOrder.map((id) => [id, 0]));
-  for (const p of session.participants.values()) {
-    const answer = p.answers.get(current.question.id);
-    if (answer && answer.selectedOptionId in tally) tally[answer.selectedOptionId]++;
-  }
+  current.lockReason = reason;
 
   io.to(baseRoom(session.id)).emit("question:locked", { questionId: current.question.id, reason });
-  io.to(baseRoom(session.id)).emit("question:reveal", {
-    questionId: current.question.id,
-    correctOptionId: correctOption.id,
-    tally,
-  });
+  io.to(baseRoom(session.id)).emit("question:reveal", revealPayload(session, current));
 
   const ranked = rankPlayers(session);
   const rankByParticipantId = new Map(ranked.map((r) => [r.participantId, r]));
@@ -259,44 +269,27 @@ export function buildResumeSnapshot(session: GameSession, participant: Participa
   }
 
   const current = session.current;
-  const questionPayload = {
-    questionId: current.question.id,
-    text: current.question.text,
-    mediaUrl: current.question.mediaUrl,
-    options: publicOptions(current.question, current.optionOrder),
-    timeLimitSeconds: current.question.timeLimitSeconds,
-    serverStartTime: current.broadcastAt,
-    index: current.index,
-    total: session.questions.length,
-    phase: current.phase,
-  };
-
+  const question = { ...questionPayload(session, current), phase: current.phase };
   const answer = participant.answers.get(current.question.id);
 
   if (current.phase === "ACTIVE") {
     return {
       status: session.status,
-      question: questionPayload,
+      question,
       answeredOptionId: answer?.selectedOptionId ?? null,
     } as const;
   }
 
   // LOCKED: also rehydrate the reveal + this participant's own result,
   // same shape as the live `question:reveal`/`answer:result` events.
-  const correctOption = current.question.options.find((o) => o.isCorrect)!;
-  const tally: Record<string, number> = Object.fromEntries(current.optionOrder.map((id) => [id, 0]));
-  for (const p of session.participants.values()) {
-    const a = p.answers.get(current.question.id);
-    if (a && a.selectedOptionId in tally) tally[a.selectedOptionId]++;
-  }
   const ranked = rankPlayers(session);
   const totalPlayers = playerCount(session);
 
   return {
     status: session.status,
-    question: questionPayload,
+    question,
     answeredOptionId: answer?.selectedOptionId ?? null,
-    reveal: { questionId: current.question.id, correctOptionId: correctOption.id, tally },
+    reveal: revealPayload(session, current),
     result:
       participant.role === "PLAYER"
         ? {
@@ -307,4 +300,29 @@ export function buildResumeSnapshot(session: GameSession, participant: Participa
           }
         : null,
   } as const;
+}
+
+/**
+ * Live state for a Host or Display that (re)connects mid-game — the
+ * controller/cast counterpart of buildResumeSnapshot (Decision #64).
+ * Without it a refreshed Host saw no question and no Lock/Next buttons, so
+ * the game could never advance again. Attached to `host:auth_ok` /
+ * `display:auth_ok` as `live`, in the same shapes as the live
+ * `question:broadcast` / `question:locked` / `question:reveal` /
+ * `leaderboard:update` events. Carries no per-player answers, only the
+ * aggregate tally, and the correct answer only once the question is locked.
+ */
+export function buildScreenSnapshot(session: GameSession) {
+  const current = session.status === "IN_PROGRESS" ? session.current : undefined;
+  const locked = current?.phase === "LOCKED";
+  // Standings exist once the first question has been scored.
+  const scored = session.status === "ENDED" || (current !== undefined && (current.index > 0 || locked));
+
+  return {
+    question: current ? { ...questionPayload(session, current), phase: current.phase } : null,
+    lockReason: locked ? (current.lockReason ?? null) : null,
+    reveal: locked ? revealPayload(session, current) : null,
+    ranked: scored ? rankPlayers(session) : null,
+    resultsUrl: session.status === "ENDED" ? `/results/${session.id}` : null,
+  };
 }

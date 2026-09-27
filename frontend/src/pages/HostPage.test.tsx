@@ -127,6 +127,34 @@ describe('HostPage', () => {
     total: 2,
   }
 
+  it('restores a locked question, its standings and the Next button after a mid-game refresh', () => {
+    renderHostPage('/host/session-1?token=host-token-abc')
+    act(() => {
+      listeners.get('connect')?.(undefined)
+      listeners.get('host:auth_ok')?.({
+        sessionId: 'session-1',
+        joinCode: 'ABC123',
+        status: 'IN_PROGRESS',
+        questionCount: 2,
+        currentQuestionIndex: 1,
+        participants: [{ id: 'p1', displayName: 'Alice' }],
+        live: {
+          question: { ...question, phase: 'LOCKED' },
+          lockReason: 'all_answered',
+          reveal: { questionId: 'q1', correctOptionId: 'o2', tally: { o1: 0, o2: 1 } },
+          ranked: [{ participantId: 'p1', displayName: 'Alice', score: 950, rank: 1 }],
+          resultsUrl: null,
+        },
+      })
+    })
+
+    expect(screen.getByText('What is 2 + 2?')).toBeInTheDocument()
+    expect(screen.getByText(/Everyone answered/)).toBeInTheDocument()
+    expect(screen.getAllByText('950').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(fakeSocket.emit).toHaveBeenCalledWith('host:next_question')
+  })
+
   it('shows the status, join code, and emits game:start from the lobby', () => {
     authenticate()
 

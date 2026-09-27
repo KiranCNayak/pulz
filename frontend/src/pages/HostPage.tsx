@@ -41,6 +41,8 @@ type HostSnapshot = {
   questionCount: number
   currentQuestionIndex: number
   participants: LobbyParticipant[]
+  /** Live game state for a mid-game (re)connect — backend buildScreenSnapshot. */
+  live?: ScreenSnapshot
 }
 
 type QuestionBroadcast = {
@@ -68,6 +70,14 @@ type QuestionPhase = 'ACTIVE' | 'LOCKED'
 
 // Mirrors backend gameLoop.service.ts's LockReason (sent on `question:locked`).
 type LockReason = 'host' | 'timer' | 'all_answered'
+
+type ScreenSnapshot = {
+  question: (QuestionBroadcast & { phase: QuestionPhase }) | null
+  lockReason: LockReason | null
+  reveal: QuestionReveal | null
+  ranked: LeaderboardEntry[] | null
+  resultsUrl: string | null
+}
 
 const LOCK_LABEL: Record<LockReason, string> = {
   host: 'Locked',
@@ -137,6 +147,19 @@ export function HostPage() {
     const onAuthOk = (snap: HostSnapshot) => {
       setAuthError(null)
       setSnapshot(snap)
+      // Mid-game (re)connect (page refresh, dropped Wi-Fi): restore the
+      // current question and its controls — without this the Lock/Next
+      // buttons never came back and the game could not advance (Decision #64).
+      const live = snap.live
+      if (live?.question) {
+        setQuestion(live.question)
+        setDeadline(questionDeadline(live.question, 'resumed'))
+        setPhase(live.question.phase)
+        setLockReason(live.lockReason)
+        setReveal(live.reveal)
+      }
+      if (live?.ranked) setLeaderboard(live.ranked)
+      if (live?.resultsUrl) setResultsUrl(live.resultsUrl)
     }
     const onAuthError = (payload: { error: string }) => {
       setSnapshot(null)

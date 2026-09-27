@@ -47,6 +47,9 @@ export interface Participant {
   answers: Map<string, AnswerRecord>; // keyed by questionId
 }
 
+/** Why a question closed (Decision #63) — sent on `question:locked`. */
+export type LockReason = "host" | "timer" | "all_answered";
+
 /** State for whichever question is currently ACTIVE or LOCKED. */
 export interface ActiveQuestionState {
   index: number; // index into GameSession.questions
@@ -55,6 +58,7 @@ export interface ActiveQuestionState {
   phase: QuestionPhase;
   broadcastAt: number; // server clock ms — the only clock timeTakenMs is derived from
   lockTimer?: NodeJS.Timeout;
+  lockReason?: LockReason; // set once LOCKED, so a (re)connecting screen can show it
 }
 
 // Note: join-code brute-force lockout (DESIGN.md §8) is tracked by the

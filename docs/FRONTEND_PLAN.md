@@ -206,6 +206,9 @@ items here as they're discovered — don't let this list go stale.
       now request to play from the question screen.
 - [x] Questions close as soon as every connected player has answered
       (Decision #63), with the lock reason shown on Display and Host.
+- [x] Host and Display resume mid-game after a refresh (Decision #64) —
+      previously a refreshed Host lost its Lock/Next controls and the game
+      could not advance.
 
 ## Status
 

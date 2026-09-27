@@ -22,6 +22,13 @@ type DisplayAuthOk = {
   status?: SessionStatus
   joinCode?: string
   participants?: LobbyParticipant[]
+  /** Live game state for a mid-game (re)connect — backend buildScreenSnapshot. */
+  live?: {
+    question: (QuestionBroadcast & { phase: 'ACTIVE' | 'LOCKED' }) | null
+    lockReason: LockReason | null
+    reveal: RevealPayload | null
+    ranked: LeaderboardEntry[] | null
+  }
 }
 
 type QuestionBroadcast = {
@@ -107,6 +114,19 @@ export function DisplayPage() {
       if (payload?.participants) setParticipants(payload.participants)
       if (payload?.status) setSessionStatus(payload.status)
       if (payload?.status === 'ENDED') setEnded(true)
+
+      // Mid-game (re)connect: jump straight to the live question / reveal
+      // instead of waiting for the next broadcast (Decision #64).
+      const live = payload?.live
+      if (live?.question) {
+        setQuestion(live.question)
+        setDeadline(questionDeadline(live.question, 'resumed'))
+        setPhase(live.question.phase === 'LOCKED' ? 'locked' : 'active')
+        setLockReason(live.lockReason)
+        setReveal(live.reveal)
+      }
+      // No previous standings to diff against, so no "+points"/climb chips.
+      if (live?.ranked) setStandings(live.ranked.map((entry) => ({ ...entry, gained: 0, rankChange: 0 })))
     }
     function handleAuthError(payload: { error?: string }) {
       setAuthStatus('error')
@@ -221,7 +241,7 @@ function StageMessage({ tone, children }: { tone: 'error' | 'loading'; children:
   return (
     <GameStage className="items-center justify-center gap-10 p-12 text-center">
       <Wordmark className="text-5xl" />
-      <div className="flex max-w-4xl items-center gap-5 text-4xl font-semibold text-balance">
+      <div className="flex max-w-4xl flex-col items-center gap-6 text-4xl font-semibold text-balance">
         {tone === 'error' ? (
           <TriangleAlert aria-hidden="true" className="size-12 shrink-0 text-[#ff5c7a]" />
         ) : (

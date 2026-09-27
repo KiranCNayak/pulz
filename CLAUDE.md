@@ -109,7 +109,7 @@ Natural next steps, roughly in order:
    `docs/ARCHITECTURE.md` §5.~~ Done, all seven feature views (Creator
    flows, Host, Display, Join/Play, Results) are implemented, and the
    Creator flow now starts a session and links to Host/Display — see
-   `docs/FRONTEND_PLAN.md` for current status and Decisions #39-63. The
+   `docs/FRONTEND_PLAN.md` for current status and Decisions #39-64. The
    full journey has been manually verified end-to-end against a live
    backend (`docker compose up`, Decision #50) and is covered by three
    automated Playwright E2E tests (Decisions #52-53, #58). The suite's

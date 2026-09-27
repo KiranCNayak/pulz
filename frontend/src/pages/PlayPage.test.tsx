@@ -112,6 +112,52 @@ describe('PlayPage', () => {
     expect(screen.getByText('4')).toBeInTheDocument() // "Correct answer: 4"
   })
 
+  it('lets a mid-game joiner ask to play, and answer once the host approves', () => {
+    renderPlayPage()
+    // Joined after the game started: resumed straight into the active question as a spectator.
+    serverEmits('join:accepted', {
+      participantId: 'p9',
+      participantToken: 'participant-token',
+      role: 'SPECTATOR',
+      state: { status: 'IN_PROGRESS', question: { ...QUESTION, phase: 'ACTIVE' }, answeredOptionId: null },
+    })
+    expect(screen.getByRole('button', { name: '4' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Request to play' }))
+    expect(fakeSocket.emit).toHaveBeenCalledWith('promotion:request')
+    expect(screen.getByRole('button', { name: 'Request sent' })).toBeDisabled()
+
+    serverEmits('promotion:result', { approved: true })
+    expect(screen.queryByRole('button', { name: /Request/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '4' }))
+    expect(fakeSocket.emit).toHaveBeenCalledWith('answer:submit', { questionId: 'q1', selectedOptionId: 'o2' })
+  })
+
+  it('tells a spectator when the host declines, and lets them ask again', () => {
+    renderPlayPage()
+    serverEmits('join:accepted', {
+      participantId: 'p9',
+      participantToken: 'participant-token',
+      role: 'SPECTATOR',
+      state: { status: 'IN_PROGRESS', question: { ...QUESTION, phase: 'ACTIVE' }, answeredOptionId: null },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Request to play' }))
+    serverEmits('promotion:result', { approved: false })
+
+    expect(screen.getByText(/host said not yet/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Request to play' })).toBeEnabled()
+  })
+
+  it('shows answer tiles as shapes only, keeping each option as its accessible name', () => {
+    renderPlayPage()
+    serverEmits('join:accepted', { participantId: 'p1', participantToken: 'participant-token', role: 'PLAYER' })
+    serverEmits('question:broadcast', QUESTION)
+
+    const tile = screen.getByRole('button', { name: '4' })
+    expect(tile.querySelector('svg')).not.toBeNull()
+    expect(screen.getByText('4')).toHaveClass('sr-only')
+  })
+
   it('shows Not quite. (not Time\'s up) for a wrong answer', () => {
     renderPlayPage()
     serverEmits('join:accepted', { participantId: 'p1', participantToken: 'participant-token', role: 'PLAYER' })

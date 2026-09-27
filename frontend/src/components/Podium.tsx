@@ -8,11 +8,16 @@ type PodiumProps = {
   entries: PodiumEntry[]
 }
 
-const MEDAL_BY_RANK: Record<number, { label: string; className: string }> = {
-  1: { label: '🥇', className: 'order-2 h-32 bg-amber-400/90' },
-  2: { label: '🥈', className: 'order-1 h-24 bg-slate-300/90' },
-  3: { label: '🥉', className: 'order-3 h-16 bg-orange-400/80' },
+const MEDAL_BY_RANK: Record<number, { label: string; blockClassName: string }> = {
+  1: { label: '🥇', blockClassName: 'h-28 bg-amber-400/90' },
+  2: { label: '🥈', blockClassName: 'h-20 bg-slate-300/90' },
+  3: { label: '🥉', blockClassName: 'h-14 bg-orange-400/80' },
 }
+
+// Visual slot by position in the ranked list, not by rank: the leader
+// stands in the middle, the next on the left, the next on the right — so
+// ties (e.g. two players sharing 2nd) still keep the winner centred.
+const SLOT_ORDER = ['order-2', 'order-1', 'order-3']
 
 /**
  * Shared podium component (ARCHITECTURE.md §5, PRD §4.4) — used by the
@@ -20,25 +25,31 @@ const MEDAL_BY_RANK: Record<number, { label: string; className: string }> = {
  * (Decision #7's tie-breaking note), so this renders whatever entries
  * (up to 3 "slots") the caller passes rather than assuming exactly one
  * per rank.
+ *
+ * Name and score sit above each medal block, in the theme's own text
+ * colors, and wrap rather than truncate — this is the only place the top
+ * three are listed (the table below starts at 4th), and a fixed-size block
+ * can't hold a 24-character name on a phone.
  */
 export function Podium({ entries }: PodiumProps) {
+  const ranked = [...entries].sort((a, b) => a.rank - b.rank)
+
   return (
-    <div className="flex items-end justify-center gap-4">
-      {entries.map((entry) => {
-        const medal = MEDAL_BY_RANK[entry.rank] ?? { label: `#${entry.rank}`, className: 'order-4 h-12 bg-muted' }
+    <div className="flex items-end justify-center gap-2 sm:gap-4">
+      {ranked.map((entry, index) => {
+        const medal = MEDAL_BY_RANK[entry.rank] ?? { label: `#${entry.rank}`, blockClassName: 'h-10 bg-muted' }
         return (
           <div
             key={`${entry.rank}-${entry.name}`}
-            className={`flex w-28 flex-col items-center justify-end rounded-t-lg pb-2 text-center shadow-sm ${medal.className}`}
+            className={`flex max-w-32 min-w-0 flex-1 flex-col items-center gap-1 text-center ${SLOT_ORDER[index] ?? 'order-4'}`}
           >
-            <div className="text-2xl">{medal.label}</div>
-            {/* Explicit dark text: these medal blocks are fixed light
-                colors regardless of app theme (like AnswerGrid's option
-                buttons), so text must not inherit the theme-driven
-                foreground color — in dark mode that's near-white and
-                unreadable against amber/slate/orange. */}
-            <div className="mt-1 truncate px-1 font-semibold text-black/80">{entry.name}</div>
-            <div className="text-sm text-black/70">{entry.score} pts</div>
+            <div className="w-full leading-tight font-semibold [overflow-wrap:anywhere]">{entry.name}</div>
+            <div className="text-sm text-muted-foreground">{entry.score} pts</div>
+            <div
+              className={`mt-1 flex w-full justify-center rounded-t-lg pt-2 text-2xl shadow-sm ${medal.blockClassName}`}
+            >
+              {medal.label}
+            </div>
           </div>
         )
       })}

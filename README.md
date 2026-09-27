@@ -79,14 +79,14 @@ again.
 | --- | --- |
 | ![Display lobby with the join code](docs/screenshots/display-lobby.jpg) | ![Display showing a live question](docs/screenshots/display.jpg) |
 
-| Play — question | Play — result |
+| Display — reveal + leaderboard | Display — podium |
 | --- | --- |
-| ![Player answering a question](docs/screenshots/play.jpg) | ![Player's correct-answer result screen](docs/screenshots/play-result.jpg) |
+| ![Display revealing the correct answer beside the leaderboard](docs/screenshots/display-reveal.jpg) | ![Display end-of-game podium](docs/screenshots/display-podium.jpg) |
 
-| Display — podium |
-| --- |
-| ![Display end-of-game podium](docs/screenshots/display-podium.jpg) |
+| Play (phone) — question | Play (phone) — result |
+| --- | --- |
+| <img src="docs/screenshots/play.jpg" alt="Player's phone: shape-only answer tiles mirroring the Display layout" width="260"> | <img src="docs/screenshots/play-result.jpg" alt="Player's correct-answer result screen" width="260"> |
 
-| Results |
+| Results (phone) |
 | --- |
-| ![Final results podium](docs/screenshots/results.jpg) |
+| <img src="docs/screenshots/results.jpg" alt="Final results podium on a phone" width="260"> |

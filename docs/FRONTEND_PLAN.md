@@ -200,6 +200,10 @@ items here as they're discovered — don't let this list go stale.
       Correct / Not quite / Time's up results. Decision #55's theme rules
       still hold (no toggle during a live game; Display/Play always on the
       stage, Host theme-aware).
+- [x] Phones mirror the Display (Decision #62): shape-only answer tiles in
+      the same layout as the projector; portrait-phone overflow audit
+      (Results podium, result hint, lobby name fixed); late joiners can
+      now request to play from the question screen.
 
 ## Status
 

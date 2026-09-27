@@ -79,6 +79,7 @@ export function PlayPage() {
   const [phase, setPhase] = useState<Phase>('connecting')
   const [role, setRole] = useState<'PLAYER' | 'SPECTATOR' | null>(null)
   const [promotionRequested, setPromotionRequested] = useState(false)
+  const [promotionDenied, setPromotionDenied] = useState(false)
   const [question, setQuestion] = useState<QuestionBroadcast | null>(null)
   const [deadline, setDeadline] = useState<number | null>(null)
   const [displayName] = useState(() => localStorage.getItem('pulz:displayName'))
@@ -163,6 +164,7 @@ export function PlayPage() {
     }
     function onPromotionResult(payload: PromotionResult) {
       setPromotionRequested(false)
+      setPromotionDenied(!payload.approved)
       if (payload.approved) setRole('PLAYER')
     }
     function onGameEnded(payload: GameEnded) {
@@ -203,6 +205,7 @@ export function PlayPage() {
 
   function handleRequestPromotion() {
     setPromotionRequested(true)
+    setPromotionDenied(false)
     socket.emit('promotion:request')
   }
 
@@ -238,7 +241,9 @@ export function PlayPage() {
         <ShapeParade />
         <h1 className="text-4xl font-black tracking-tight">You're in!</h1>
         {displayName ? (
-          <p className="max-w-full truncate rounded-full bg-white/10 px-5 py-2 text-xl font-semibold">{displayName}</p>
+          <p className="max-w-full rounded-3xl bg-white/10 px-5 py-2 text-xl font-semibold [overflow-wrap:anywhere]">
+            {displayName}
+          </p>
         ) : null}
         <p className="text-stage-muted">Waiting for the host to start the game...</p>
         {role === 'SPECTATOR' ? (
@@ -293,9 +298,9 @@ export function PlayPage() {
           Rank {result.myRank} of {result.totalPlayers}
         </p>
         {!result.isCorrect && correctOption ? (
-          <p className="flex items-center gap-2 rounded-xl bg-black/20 px-4 py-2 text-base">
+          <p className="flex max-w-full items-center gap-2 rounded-xl bg-black/20 px-4 py-2 text-base">
             <AnswerShape shape={correctOption.shape} className="size-5 shrink-0" />
-            <span>
+            <span className="min-w-0 [overflow-wrap:anywhere]">
               Correct answer: <span className="font-semibold">{correctOption.label}</span>
             </span>
           </p>
@@ -332,7 +337,23 @@ export function PlayPage() {
 
       <div className="flex min-h-14 items-center justify-center px-4 pt-1 pb-4 text-center text-sm" aria-live="polite">
         {role === 'SPECTATOR' ? (
-          <span className="text-stage-muted">Spectating — you can't answer this round.</span>
+          // Joined after the game started (DESIGN.md §2): the host has to let
+          // them in, from the next answer on — no retroactive points
+          // (Decision #13). This is the only screen a late joiner ever sees,
+          // so the request has to live here, not just in the lobby.
+          <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+            <span className="text-stage-muted">
+              {promotionDenied ? 'The host said not yet — you can ask again.' : "You joined mid-game, so you're watching."}
+            </span>
+            <Button
+              size="sm"
+              className="bg-white text-stage hover:bg-white/90"
+              onClick={handleRequestPromotion}
+              disabled={promotionRequested}
+            >
+              {promotionRequested ? 'Request sent' : 'Request to play'}
+            </Button>
+          </span>
         ) : answerError && !result ? (
           <span className="rounded-full bg-stage-incorrect px-4 py-1.5 font-medium">{answerError}</span>
         ) : phase === 'locked' ? (
@@ -351,7 +372,7 @@ export function PlayPage() {
         <div className="flex flex-1 flex-col px-4 pb-4 sm:mx-auto sm:w-full sm:max-w-3xl">
           <AnswerGrid
             className="flex-1 auto-rows-fr"
-            stacked
+            shapeOnly
             options={toAnswerOptions(question.options)}
             onSelect={handleSelect}
             selectedOptionId={selectedOptionId}

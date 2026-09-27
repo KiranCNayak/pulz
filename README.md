@@ -51,6 +51,16 @@ backend, and the frontend together. With that running,
 `POST /auth/register`'s 10/hour-per-IP production limit so the suite can
 be re-run freely — Decision #60.)
 
+### Try a game with dummy questions
+
+With the stack up, `cd backend && npm run demo` creates an 8-question
+general-knowledge quiz, starts a live session, and prints the join code
+plus the Host and Display links. Open the Host link in one window, the
+Display link in another, and join as players at `http://localhost:5173/join`
+— one player per browser or profile (tabs in one browser share storage).
+Sessions live in backend memory, so after a backend restart just run it
+again.
+
 ## Screenshots
 
 | Create | Create (dark mode) |

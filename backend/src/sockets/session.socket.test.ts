@@ -16,6 +16,7 @@ vi.mock("../services/results.service.js", () => ({
 }));
 
 import { createSocketServer } from "./index.js";
+import { SOCKET_MESSAGE_RATE_LIMIT } from "../domain/constants.js";
 import { allocateJoinCode, createSessionId, deleteSession, putSession } from "../domain/sessionStore.js";
 import type { GameSession, SnapshotQuestion } from "../types/session.js";
 
@@ -210,5 +211,23 @@ describe("auto-lock once everyone has answered (Decision #63)", () => {
     expect((await locked).reason).toBe("all_answered");
     expect((await alexResult).isCorrect).toBe(true);
     expect((await samResult).isCorrect).toBe(false);
+  });
+});
+
+describe("per-connection message cap (ARCHITECTURE.md §11)", () => {
+  it("lets a burst up to the cap through, then refuses and disconnects the flooding client", async () => {
+    const client = await connect();
+    const refused = waitFor<{ error: string }>(client, "connection:error");
+    const dropped = waitFor<string>(client, "disconnect");
+
+    // promotion:request from a socket that never joined is a harmless no-op
+    // server-side — pure message volume.
+    for (let i = 0; i < SOCKET_MESSAGE_RATE_LIMIT; i++) client.emit("promotion:request");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(client.connected).toBe(true);
+
+    client.emit("promotion:request"); // one over the cap
+    expect((await refused).error).toMatch(/Too many messages/);
+    expect(await dropped).toBe("io server disconnect");
   });
 });

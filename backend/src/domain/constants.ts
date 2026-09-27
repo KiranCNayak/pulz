@@ -67,6 +67,14 @@ export const JOIN_RATE_WINDOW_MS = 60_000;
 export const SOCKET_CONNECT_RATE_LIMIT = 20;
 export const SOCKET_CONNECT_RATE_WINDOW_MS = 60_000;
 
+// Per-connection inbound message cap (ARCHITECTURE.md §11 table row 4) — a
+// coarse backstop against protocol-level garbage, not gameplay throttling:
+// a player sends a handful of events per question and a host a few clicks,
+// so 60 per 10s is far above any legitimate pace (even a host approving a
+// queue of spectators).
+export const SOCKET_MESSAGE_RATE_LIMIT = 60;
+export const SOCKET_MESSAGE_RATE_WINDOW_MS = 10_000;
+
 // --- Scoring (PRD §5, DESIGN.md §5, Decision #1/#2) ---
 
 /** Ordered ascending; first bracket whose `maxPct` the answer's elapsed

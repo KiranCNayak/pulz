@@ -107,32 +107,61 @@ next QUESTION_ACTIVE, or → ENDED if last question
 
 ## 3. Realtime Event Surface
 
-All gameplay is push-driven; clients don't poll. Rough event catalogue
-(direction: **H**=to Host, **P**=to Player, **S**=to Spectator, **→**=from
-client to server):
+All gameplay is push-driven; clients don't poll. Event catalogue, kept in
+sync with `backend/src/sockets/session.socket.ts` and
+`backend/src/services/gameLoop.service.ts` (reconciled 2026-09-28, Decision
+#66 — earlier drafts listed fields that were never sent). Direction:
+**H**=Host, **D**=Display, **P**=Player, **S**=Spectator, **→ server**=from
+client. Everything sent to a session's base room reaches H, D, P and S.
+Clients never send their own identity or timing: the server knows which
+participant a socket is, and times answers on its own clock (§5).
 
-| Event | Direction | Payload (shape) |
+**Connection & auth**
+
+| Event | Direction | Payload |
 |---|---|---|
-| `session:lobby_update` | → H, P | `{participants: [{id, displayName}]}` |
-| `join:request` | client → server | `{joinCode, displayName}` |
-| `join:accepted` | → joining client | `{participantId, role}` |
-| `question:broadcast` | → H, P, S | `{questionId, text, options[shape/color, no correctness], timeLimitSeconds, serverStartTime}` |
-| `answer:submit` | P → server | `{participantId, questionId, selectedOptionId, clientTimestamp}` |
-| `answer:ack` | → P (submitter only) | `{received: true}` (no correctness yet) |
-| `question:locked` | → H, P, S | `{questionId, reason: 'host' \| 'timer' \| 'all_answered'}` |
-| `question:reveal` | → H, P, S | `{questionId, correctOptionId, tally per option}` |
-| `answer:result` | → P (per player) | `{isCorrect, pointsEarned, myRank, totalPlayers}` |
-| `leaderboard:update` (host only, full) | → H | `{ranked: [{participantId, displayName, score}]}` |
-| `promotion:request` | S → server | `{participantId}` |
+| `host:auth` | H → server | `{sessionId, hostToken}` |
+| `host:auth_ok` | → H | `{sessionId, joinCode, status, questionCount, currentQuestionIndex, participants, live}` — `live` restores a mid-game screen (Decision #64) |
+| `host:auth_error` / `host:error` | → H | `{error}` |
+| `display:auth` | D → server | `{sessionId, displayToken}` |
+| `display:auth_ok` | → D | `{sessionId, status, joinCode, participants, live}` |
+| `display:auth_error` | → D | `{error}` |
+| `join:request` | P/S → server | `{joinCode, displayName?, participantToken?}` — a valid `participantToken` resumes that participant (reconnect, §9) |
+| `join:accepted` | → joining client | `{participantId, participantToken, role, resumed?, state?}` — `state` is the resume snapshot (Decision #53) |
+| `join:error` | → joining client | `{error}` |
+| `connection:error` | → any client | `{error}` — rate-limit refusal, followed by a server disconnect (Decisions #59-60, #66) |
+| `session:lobby_update` | → H, D, P, S | `{participants: [{id, displayName, role}]}` (connected only) |
+
+**Game loop**
+
+| Event | Direction | Payload |
+|---|---|---|
+| `game:start` | H → server | — |
+| `question:broadcast` | → H, D, P, S | `{questionId, text, mediaUrl, options: [{id, text}], timeLimitSeconds, serverStartTime, index, total}` — options in this session's shuffled order, no correctness; each slot's color/shape is assigned client-side by position (Decision #48) |
+| `answer:submit` | P → server | `{questionId, selectedOptionId}` |
+| `answer:ack` | → submitting P | `{received: true}` (no correctness yet) |
+| `answer:error` | → submitting P | `{error}` (e.g. already answered, question closed) |
+| `host:lock_question` | H → server | — |
+| `question:locked` | → H, D, P, S | `{questionId, reason: 'host' \| 'timer' \| 'all_answered'}` (Decision #63) |
+| `question:reveal` | → H, D, P, S | `{questionId, correctOptionId, tally: {optionId: count}}` |
+| `answer:result` | → each connected P | `{isCorrect, pointsEarned, myRank, totalPlayers}` |
+| `leaderboard:update` | → H, D | `{ranked: [{participantId, displayName, score, rank}]}` |
+| `host:next_question` | H → server | — (next `question:broadcast`, or `game:ended` after the last) |
+| `game:ended` | → H, D, P, S | `{resultsUrl}` — results are then fetched over REST (`GET /results/:sessionId`, paginated), not pushed |
+
+**Spectator promotion**
+
+| Event | Direction | Payload |
+|---|---|---|
+| `promotion:request` | S → server | — |
 | `promotion:incoming` | → H | `{participantId, displayName}` |
 | `promotion:decision` | H → server | `{participantId, approve: bool}` |
-| `promotion:result` | → S/new-P | `{approved: bool}` |
-| `game:ended` | → H, P, S | `{resultsUrl}` |
-| `results:podium` | → all (via resultsUrl) | `{top3, ranks4to10, page metadata}` |
+| `promotion:result` | → requesting S | `{approved: bool}` |
 
-Note: **Players never receive the full leaderboard** — only their own
-`{myRank, totalPlayers}` per the PRD's scope-reduction decision. Only the
-Host's Controller view receives the full ranked list.
+Note: **players' own devices never receive the full leaderboard** — only
+their own `{myRank, totalPlayers}` per the PRD's scope-reduction decision.
+The full ranked list goes to the Host and to the Display, whose shared
+screen shows the top 5 to the room.
 
 ## 4. Question/Answer Order Randomization
 

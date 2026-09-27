@@ -9,50 +9,33 @@ synchronous quiz session, players join from any device via a short join
 code (no account needed), answer on a color/shape button grid, and see
 live scoring, leaderboard rank, and a podium finish.
 
-## Current status (2026-09-23)
+## Current status (2026-09-28)
 
-**Backend game loop, results, and Creator identity all implemented;
-frontend foundation is scaffolded, feature views in progress — see
-`docs/FRONTEND_PLAN.md`.** `backend/` now has, on top of the Fastify +
-Prisma/Postgres skeleton and Creator quiz-CRUD REST endpoints:
+**The MVP is feature-complete and verified end-to-end.** Don't assume this
+summary stays accurate as work continues — verify with `ls`/`git log`, and
+see `docs/DECISIONS.md` (the log runs to #66) for the why behind each piece.
 
-- **Creator identity is a capability bearer token**, not the old
-  `x-creator-id` header: `POST /auth/register` mints a Creator + a random
-  token (returned once; only its hash is stored), and every Creator-scoped
-  route now requires `Authorization: Bearer <token>`. No password, no
-  email, no OAuth dependency — and no account recovery if the token is
-  lost, which is the accepted trade-off (see Decision #38). Real
-  email/password or OAuth-based auth is still not built and is a
-  deliberately separate, deferred upgrade, not a gap in what's shipped.
-- `POST /quizzes/:id/sessions` — creates a live `GameSession` from a
-  saved quiz (snapshotted, so mid-game Creator edits can't change a
-  running game), gated by the same bearer-token auth as quiz CRUD.
-- A full Socket.IO game loop (`backend/src/sockets/session.socket.ts`,
-  `services/gameLoop.service.ts`, `services/join.service.ts`): host/
-  display auth, join/reconnect (idempotent via participant token),
-  per-session-shuffled question/option order, server-authoritative
-  `answer:submit` scoring (DESIGN.md §5), spectator promotion request/
-  decision, and the state machine per DESIGN.md §2 — collapsed from its
-  literal 3 host-clicks-per-question to 2 (see Decision #33).
-- Join-code brute-force lockout and basic in-process rate limiting
-  (`backend/src/domain/rateLimiter.ts`) per DESIGN.md §8 /
-  ARCHITECTURE.md §11 — the app-level piece only; Cloudflare/Turnstile
-  edge protection is still not-yet-provisioned infra, not app code.
-- `game:ended` writes a `ResultsSnapshot`; `GET /results/:sessionId`
-  reads it back, paginated per PRD §6.
-
-Verified end-to-end against a throwaway local Postgres container (both
-migrations applied cleanly): register → bearer-token quiz/session
-creation → a real Socket.IO client driving a full two-question game
-(join, start, answer, lock/reveal/leaderboard, advance, end) → results
-fetch, plus the join-code lockout and the `/auth/register` rate limiter,
-both confirmed to trip at their exact configured thresholds. See
-`docs/DECISIONS.md` #25-#38 for the choices made along the way (Prisma,
-folder layout, the 2-click state machine, code-string-keyed lockout
-tracking, the capability-token identity model). The frontend (React +
-Vite SPA) is now fully implemented too — see "Likely next steps" #2 below
-and `docs/FRONTEND_PLAN.md`. Don't assume this summary stays accurate as
-work continues — verify with `ls`/`git log`.
+- **Creator flow** (`/create`, `/quizzes/:id/edit`): capability-bearer-token
+  identity (Decision #38 — no password/email/OAuth, no account recovery by
+  design), quiz CRUD, and "Start session" with a results-retention choice
+  (1/6/24h, Decision #65) that hands off Host/Display links.
+- **Live game** over Socket.IO: Host controller, projector Display, and
+  player phones that mirror the Display's shape layout (Decision #62). Join
+  by code; late joiners spectate and can request to play; questions close
+  when the host locks, the timer runs out, or every connected player has
+  answered (Decision #63); scoring is server-authoritative (DESIGN.md §5).
+- **Reconnect everywhere**: players (page refresh or network drop,
+  Decisions #53/#58) and Host/Display (Decision #64) resume mid-game.
+- **Results**: podium + paginated ranks at `/results/:sessionId`, from a
+  `ResultsSnapshot` that expires per the session's retention choice.
+- **Abuse resilience (app-level)**: join-code lockout, composite-key
+  (IP + client id) connect/join limits, a per-connection message cap, and a
+  registration limit (Decisions #23, #59, #66, #38). The Cloudflare/Turnstile
+  edge layer is deployment infra, not yet provisioned.
+- **Tests**: backend Vitest (unit + real-Socket.IO integration), frontend
+  Vitest, and a Playwright E2E suite run against `docker compose up`
+  (stable since Decision #59). `cd backend && npm run demo` seeds a
+  playable 8-question game for manual checks.
 
 There is also a **`backend-go/`** directory — this is a separate,
 non-shipping performance-exploration module (Go), not an alternative or
@@ -98,53 +81,25 @@ real backend. See `docs/GO_V2_EXPLORATION.md` and Decision #31.
   scaling, bulk approvals, etc.). Don't build these speculatively — flag
   them as future work if they come up.
 
-## Likely next steps (as of this writing)
+## What's left (as of 2026-09-28)
 
-Backend now has Creator CRUD, capability-token Creator auth, session
-creation, the full game loop, and results (see "Current status" above).
-Natural next steps, roughly in order:
-1. ~~Scaffold the backend (Fastify + Socket.IO + Postgres client) per
-   `docs/ARCHITECTURE.md`.~~ Done.
-2. ~~Scaffold the frontend (React + Vite) with the route structure from
-   `docs/ARCHITECTURE.md` §5.~~ Done, all seven feature views (Creator
-   flows, Host, Display, Join/Play, Results) are implemented, and the
-   Creator flow now starts a session and links to Host/Display — see
-   `docs/FRONTEND_PLAN.md` for current status and Decisions #39-65. The
-   full journey has been manually verified end-to-end against a live
-   backend (`docker compose up`, Decision #50) and is covered by three
-   automated Playwright E2E tests (Decisions #52-53, #58). The suite's
-   earlier flakiness is root-caused and fixed (Decision #59 — a raw-IP
-   socket connection limiter, plus a prod-only PlayPage join bug found
-   along the way). The dev docker-compose stack raises
-   `POST /auth/register`'s 10/hour/IP production limit (Decision #60), so
-   repeated E2E runs no longer need a backend restart; if a run goes red
-   against some other backend, check its logs for `429`s first.
-3. ~~Finish the Creator flow~~ Done differently than originally planned —
-   see Decision #38: instead of email/password or JWT auth
-   (`docs/ARCHITECTURE.md` §7, now superseded for the moment), Creator
-   identity is a capability bearer token from `POST /auth/register`, with
-   no email/password/OAuth at all. Deliberately **not** done: any form of
-   account recovery — if a Creator loses their token, their quizzes are
-   unrecoverable by design. Revisit only if the project owner decides
-   recovery/cross-device portability is worth the added infra (a
-   passwordless-email upgrade is the documented option, see Decision
-   #38); don't build it speculatively.
-4. ~~Implement the session/game loop~~ Done — see Decision #37.
-   Reconnect against an actual dropped connection is now tested too (the
-   "page refresh" case, ARCHITECTURE.md §6) — see Decision #53; a pure
-   transport-level drop without a page reload is a narrower, still-open
-   gap (`docs/FRONTEND_PLAN.md`). The abuse-resilience piece is still
-   app-level only — the edge layer (Cloudflare, Turnstile,
-   ARCHITECTURE.md §11) is still unprovisioned infra.
-5. ~~Implement the podium/results flow~~ Done — see Decision #37, and the
-   `/results/:sessionId` frontend page (step 2) renders it.
+Everything tracked as a gap is closed. Remaining items are all deliberate
+deferrals — **confirm with the project owner before starting any of them**:
 
-If you're an agent starting implementation, confirm with the project
-owner which of these to tackle first rather than assuming — this list is
-a plausible ordering, not a locked-in plan.
+1. **Postgres-backed integration tests** for the CRUD services
+   (`quiz.service.ts`, `auth.service.ts`, `session.service.ts`) — deferred
+   by the owner (Decision #56 for why they weren't in the first test pass).
+2. **Deployment**, including the edge layer (Cloudflare + conditional
+   Turnstile, ARCHITECTURE.md §11). At that point the rate limiters must
+   read the real client IP from `CF-Connecting-IP` (trusting it only from
+   Cloudflare), and the frontend must be built with `VITE_API_URL` /
+   `VITE_SOCKET_URL` pointing at the real backend, with `CORS_ORIGIN` set to
+   the real frontend origin.
+3. **Account recovery / cross-device Creator access** — deliberately not
+   built (Decision #38); a passwordless-email upgrade is the documented
+   option if the owner ever wants it. Don't build it speculatively.
 
-**Separately, and not part of the above ordering:** `backend-go/` is a
-low-priority, owner-driven exploration to measure Go vs. Node performance
-for this workload — see `docs/GO_V2_EXPLORATION.md`. It currently has only
-a health-check endpoint. Pick it up only if explicitly asked to; it does
-not block or get ahead of steps 2–5 above.
+**Separately:** `backend-go/` is a low-priority, owner-driven exploration
+to measure Go vs. Node performance for this workload — see
+`docs/GO_V2_EXPLORATION.md`. It currently has only a health-check endpoint.
+Pick it up only if explicitly asked to.

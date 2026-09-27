@@ -34,10 +34,10 @@ See:
   backend and covered by three Playwright E2E tests. See
   `docs/FRONTEND_PLAN.md`.
 
-**Status:** MVP backend implemented and verified end-to-end (68 automated
+**Status:** MVP backend implemented and verified end-to-end (unit and real-socket
 tests); frontend's full user journey (create → start session →
 host/display/play → results) is implemented, manually verified
-end-to-end, and covered by three automated E2E tests, which are stable
+end-to-end, and covered by an automated Playwright E2E suite, which is stable
 (Decision #59 fixed the earlier flakiness). See `docs/FRONTEND_PLAN.md`
 for the plan/progress and how to run the stack locally, and `CLAUDE.md`
 for the full up-to-date picture.

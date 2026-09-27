@@ -190,7 +190,7 @@ because legitimate-use shapes differ:
 | Join attempt, any code | A person retries a couple of times, typos included | Loose per-IP window (must tolerate shared-IP classrooms) |
 | Join attempt against **one specific code** | A whole class can legitimately hit the same code within seconds | Lock out that *code* (not the IP) after N failed attempts — see `DESIGN.md` §8's `failedJoinAttempts` — this is what actually defeats PIN brute-forcing |
 | New WebSocket connection | ~1 per device per session | Cap new connections/minute per composite key |
-| `answer:submit` / `promotion:request` | Bounded by game rules already (one answer per question, role check) | No new limiter needed — see `DESIGN.md` §8; only a coarse message-rate cap at the socket level as a backstop against protocol-level garbage |
+| `answer:submit` / `promotion:request` | Bounded by game rules already (one answer per question, role check) | No new limiter needed — see `DESIGN.md` §8; only a coarse message-rate cap at the socket level as a backstop against protocol-level garbage (implemented: 60 events per 10s per connection — Decision #66) |
 
 **3. Progressive friction ladder, not a binary ban:**
 `allow → throttle (delay the response) → challenge (Turnstile) → temporary

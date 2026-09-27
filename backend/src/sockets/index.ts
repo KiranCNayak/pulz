@@ -4,6 +4,8 @@ import { env } from "../config/env.js";
 import {
   SOCKET_CONNECT_RATE_LIMIT,
   SOCKET_CONNECT_RATE_WINDOW_MS,
+  SOCKET_MESSAGE_RATE_LIMIT,
+  SOCKET_MESSAGE_RATE_WINDOW_MS,
 } from "../domain/constants.js";
 import { compositeRateKey, SlidingWindowLimiter } from "../domain/rateLimiter.js";
 import { registerSessionHandlers } from "./session.socket.js";
@@ -40,6 +42,16 @@ export function createSocketServer(httpServer: HttpServer): SocketIOServer {
       socket.disconnect(true);
       return;
     }
+
+    // Coarse per-connection message cap (ARCHITECTURE.md §11 table row 4).
+    // One limiter per socket, so it's garbage-collected with the connection.
+    const messageLimiter = new SlidingWindowLimiter(SOCKET_MESSAGE_RATE_LIMIT, SOCKET_MESSAGE_RATE_WINDOW_MS);
+    socket.use((_packet, next) => {
+      if (messageLimiter.consume(socket.id)) return next();
+      socket.emit("connection:error", { error: "Too many messages — slow down" });
+      socket.disconnect(true);
+    });
+
     registerSessionHandlers(io, socket);
   });
 

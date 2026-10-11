@@ -9,6 +9,8 @@
 // enough for MVP scale (ARCHITECTURE.md §8) and self-cleaning (a key not
 // seen again just stops mattering; there is no persistent store to leak).
 
+import type { IncomingHttpHeaders } from "node:http";
+
 interface Bucket {
   count: number;
   windowStart: number;
@@ -92,4 +94,17 @@ const CLIENT_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
  * bare IP (the strictest bucket) rather than being rejected. */
 export function compositeRateKey(ip: string, clientId: unknown): string {
   return typeof clientId === "string" && CLIENT_ID_PATTERN.test(clientId) ? `${ip}|${clientId}` : ip;
+}
+
+/** The address to rate-limit on. Behind a proxy (Fly.io in production)
+ * the TCP peer is the proxy itself, so every visitor would land in one
+ * shared bucket. `trustedHeader` (env CLIENT_IP_HEADER, e.g.
+ * `fly-client-ip`) names the header that proxy sets to the visitor's real
+ * address. Only configure it when that proxy is guaranteed to sit in
+ * front: without one, clients can send the header themselves. */
+export function clientIp(headers: IncomingHttpHeaders, peerAddress: string, trustedHeader: string | undefined): string {
+  if (!trustedHeader) return peerAddress;
+  const value = headers[trustedHeader.toLowerCase()];
+  const first = (Array.isArray(value) ? value[0] : value)?.split(",")[0]?.trim();
+  return first || peerAddress;
 }

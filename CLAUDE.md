@@ -13,7 +13,7 @@ live scoring, leaderboard rank, and a podium finish.
 
 **The MVP is feature-complete and verified end-to-end.** Don't assume this
 summary stays accurate as work continues — verify with `ls`/`git log`, and
-see `docs/DECISIONS.md` (the log runs to #70) for the why behind each piece.
+see `docs/DECISIONS.md` (the log runs to #71) for the why behind each piece.
 
 - **Home** (`/`) and a documented visual system (`docs/DESIGN_SYSTEM.md`,
   Decision #68): ink stage, one lime accent, Outfit/Geist type.
@@ -100,14 +100,13 @@ deferrals — **confirm with the project owner before starting any of them**:
 1. **Postgres-backed integration tests** for the CRUD services
    (`quiz.service.ts`, `auth.service.ts`, `session.service.ts`) — deferred
    by the owner (Decision #56 for why they weren't in the first test pass).
-2. **Deployment**, including the edge layer (Cloudflare + conditional
-   Turnstile, ARCHITECTURE.md §11). At that point the rate limiters must
-   read the real client IP from `CF-Connecting-IP` (trusting it only from
-   Cloudflare), and the frontend must be built with `VITE_API_URL` /
-   `VITE_SOCKET_URL` pointing at the real backend, with `CORS_ORIGIN` set to
-   the real frontend origin. Observability is already wired in (Decision
-   #70); turning it on is the Grafana Cloud steps in
-   `docs/OBSERVABILITY.md`.
+2. **Provisioning the deployment.** The code and config are done
+   (Decision #71): Fly.io backend started and stopped on demand with
+   `make cloud-up` / `cloud-down`, Neon, Cloudflare Pages, real client IP
+   via `CLIENT_IP_HEADER`, and the `cloud-guard` budget workflow. What's
+   left is the owner's one-time account/DNS steps in `docs/DEPLOYMENT.md`.
+   The Cloudflare proxy + conditional Turnstile in front of the API
+   (ARCHITECTURE.md §11) is still deferred; the API is DNS-only.
 3. **Account recovery / cross-device Creator access** — deliberately not
    built (Decision #38); a passwordless-email upgrade is the documented
    option if the owner ever wants it. Don't build it speculatively.

@@ -1,5 +1,6 @@
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import type { Server, Socket } from "socket.io";
+import { env } from "../config/env.js";
 import {
   JOIN_CODE_LOCKOUT_DURATION_MS,
   JOIN_CODE_LOCKOUT_THRESHOLD,
@@ -7,7 +8,7 @@ import {
   JOIN_RATE_LIMIT,
   JOIN_RATE_WINDOW_MS,
 } from "../domain/constants.js";
-import { compositeRateKey, LockoutTracker, SlidingWindowLimiter } from "../domain/rateLimiter.js";
+import { clientIp, compositeRateKey, LockoutTracker, SlidingWindowLimiter } from "../domain/rateLimiter.js";
 import { getSessionById, getSessionByJoinCode, resolveParticipant } from "../domain/sessionStore.js";
 import { joinAttempts, rateLimited } from "../observability/metrics.js";
 import * as gameLoop from "../services/gameLoop.service.js";
@@ -43,8 +44,9 @@ interface SocketContext {
 // re-validating a token on every single message.
 const socketContexts = new Map<string, SocketContext>();
 
-function socketRateKey(socket: Socket): string {
-  return compositeRateKey(socket.handshake.address, socket.handshake.auth?.clientId);
+export function socketRateKey(socket: Socket): string {
+  const ip = clientIp(socket.handshake.headers, socket.handshake.address, env.clientIpHeader);
+  return compositeRateKey(ip, socket.handshake.auth?.clientId);
 }
 
 function hostSnapshot(session: GameSession) {

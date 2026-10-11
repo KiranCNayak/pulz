@@ -1,0 +1,53 @@
+# Budget circuit breaker for the on-demand Fly.io backend (docs/DEPLOYMENT.md,
+# Decision #71). Fly.io has no spending cap or billing alerts, so this does
+# the job: every hour it stops any backend machine that has been running
+# longer than PULZ_MAX_RUN_HOURS (default 6), then fails, which makes GitHub
+# email you. A forgotten `make cloud-up` costs a few cents, not a month.
+name: cloud-guard
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FLY_APP: pulz-api
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      MAX_RUN_HOURS: ${{ vars.PULZ_MAX_RUN_HOURS || 6 }}
+    steps:
+      - name: Skip until the Fly token is configured
+        if: env.FLY_API_TOKEN == ''
+        run: echo "FLY_API_TOKEN isn't set yet, so there's nothing to guard (docs/DEPLOYMENT.md step 6)."
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: env.FLY_API_TOKEN != ''
+
+      - name: Stop machines running longer than the limit
+        if: env.FLY_API_TOKEN != ''
+        run: |
+          now=$(date +%s)
+          tripped=0
+          # Running since = the latest start/launch/restart/update event,
+          # falling back to updated_at if Fly has trimmed the event list.
+          rows=$(flyctl machine list --app "$FLY_APP" --json | jq -r '
+            .[] | select(.state == "started")
+            | [.id, (([.events[]? | select(.type | IN("start", "launch", "restart", "update")) | .timestamp] | max)
+                     // ((.updated_at | sub("\\.[0-9]+"; "") | fromdateiso8601) * 1000))]
+            | @tsv')
+          if [ -z "$rows" ]; then echo "No running machines."; exit 0; fi
+          while IFS=$'\t' read -r id since_ms; do
+            hours=$(( (now - since_ms / 1000) / 3600 ))
+            echo "Machine $id has been running for ${hours}h (limit ${MAX_RUN_HOURS}h)."
+            if [ "$hours" -ge "$MAX_RUN_HOURS" ]; then
+              flyctl machine stop "$id" --app "$FLY_APP"
+              echo "::error::Stopped $id after ${hours}h. Start it again with 'make cloud-up'."
+              tripped=1
+            fi
+          done <<< "$rows"
+          exit "$tripped"

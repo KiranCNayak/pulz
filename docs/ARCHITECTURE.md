@@ -64,14 +64,16 @@ Per DESIGN.md §7, the functional requirement is just "unreadable after
 
 ## 4. Hosting
 
-- **Backend:** single web service (REST + Socket.IO in one process) on a
-  low-cost PaaS with an always-on hobby/free instance — Fly.io or Render
-  are the leading candidates (both support WebSocket connections on cheap
-  tiers, unlike pure serverless functions which don't hold persistent
-  connections well).
-- **Frontend:** a static SPA built with **React + Vite**, deployed
-  separately to a free static host (Cloudflare Pages, Vercel, or Netlify
-  free tier), calling the backend over REST + WebSocket.
+- **Backend:** single web service (REST + Socket.IO in one process) on
+  one Fly.io machine in Singapore, which holds WebSocket connections fine
+  (pure serverless functions don't). It runs **on demand, not always on**:
+  started with `make cloud-up` before a game and stopped with
+  `make cloud-down` after (Decision #71, `docs/DEPLOYMENT.md`).
+- **Frontend:** a static SPA built with **React + Vite** on Cloudflare
+  Pages (free), calling the backend over REST + WebSocket. It stays up
+  while the backend is off and says so.
+- **Database:** Neon's free plan in AWS Singapore, next to the backend.
+  It sleeps when idle, so it needs no switching.
 - **Why split frontend/backend deploys:** static hosting for the SPA is
   effectively free and globally cached; only the stateful realtime piece
   needs an always-on server, so we're not paying "server pricing" for
@@ -143,10 +145,13 @@ Player/Display/Results views instead of duplicated per app.
 
 ## 9. Deployment
 
-- Direct push to `main` deploys (per repo convention — see `CLAUDE.md`),
-  using the chosen PaaS's git-integrated auto-deploy rather than a
-  separate CI/CD pipeline for MVP. Revisit once there's a team beyond a
-  single contributor/agent, or once there's a test suite worth gating on.
+- Frontend: a push to `main` deploys, through Cloudflare Pages' Git
+  integration rather than a separate CI/CD pipeline.
+- Backend: `make cloud-deploy` (manual on purpose; an auto-deploy would
+  start the stopped machine). Migrations run as Fly's release command,
+  before the new version goes live. Runbook: `docs/DEPLOYMENT.md`.
+- Revisit CI gating once there's a team beyond a single
+  contributor/agent.
 
 ## 11. Abuse Prevention & Rate Limiting
 
@@ -166,7 +171,9 @@ to maintain) or scoped/temporary/composite-keyed rather than a permanent
 IP blacklist.
 
 **1. Edge layer — Cloudflare (free tier), in front of both the static
-frontend and the backend origin.**
+frontend and the backend origin.** *(As deployed, only the frontend is
+behind it; the API is DNS-only so the rate limiters see real visitor IPs.
+See Decision #71.)*
 - Absorbs L3/L4 volumetric DDoS before it reaches our one small backend
   instance — this is infrastructure built for exactly this problem; not
   worth reinventing in application code.
@@ -224,14 +231,14 @@ evidence that the lighter measures above are insufficient.
 | Backend language/runtime | Node.js + TypeScript |
 | REST framework | Fastify |
 | Realtime | Socket.IO (rooms = sessions) |
-| Durable DB | Postgres (Neon or Supabase free tier) |
+| Durable DB | Postgres on Neon's free plan (Singapore) |
 | Live game state | In-process memory, not persisted until game ends |
 | TTL cleanup | In-process interval sweep, no external cron |
 | Frontend | React + Vite SPA |
-| Frontend hosting | Static host (Cloudflare Pages / Vercel / Netlify free tier) |
-| Backend hosting | Fly.io or Render, always-on hobby instance |
+| Frontend hosting | Cloudflare Pages (free) |
+| Backend hosting | One Fly.io machine (Singapore), started and stopped on demand (Decision #71) |
 | Auth | Email/password (or minimal JWT) for Creators only |
-| Edge/DDoS layer | Cloudflare free tier (in front of frontend + backend) |
+| Edge/DDoS layer | Cloudflare free tier in front of the frontend; API DNS-only for now (Decision #71) |
 | Abuse rate limiting | In-process composite-key (IP + client id) token bucket, no external service |
 | Observability | OpenTelemetry (backend) + Grafana Faro (frontend) → Grafana Cloud free tier (§13) |
 

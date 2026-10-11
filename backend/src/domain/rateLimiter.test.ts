@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compositeRateKey, LockoutTracker, SlidingWindowLimiter } from "./rateLimiter.js";
+import { clientIp, compositeRateKey, LockoutTracker, SlidingWindowLimiter } from "./rateLimiter.js";
 
 describe("SlidingWindowLimiter", () => {
   it("allows up to the limit within a window, then rejects", () => {
@@ -130,5 +130,25 @@ describe("compositeRateKey", () => {
     expect(compositeRateKey("203.0.113.7", "short")).toBe("203.0.113.7");
     expect(compositeRateKey("203.0.113.7", "x".repeat(65))).toBe("203.0.113.7");
     expect(compositeRateKey("203.0.113.7", "has|pipe-chars")).toBe("203.0.113.7");
+  });
+});
+
+describe("clientIp", () => {
+  it("uses the peer address when no proxy header is trusted", () => {
+    expect(clientIp({ "fly-client-ip": "198.51.100.9" }, "10.0.0.1", undefined)).toBe("10.0.0.1");
+  });
+
+  it("reads the trusted proxy header, case-insensitively, so visitors behind one proxy get their own buckets", () => {
+    expect(clientIp({ "fly-client-ip": "198.51.100.9" }, "10.0.0.1", "Fly-Client-IP")).toBe("198.51.100.9");
+    expect(clientIp({ "fly-client-ip": "198.51.100.10" }, "10.0.0.1", "fly-client-ip")).toBe("198.51.100.10");
+  });
+
+  it("takes the first entry of a list-valued header", () => {
+    expect(clientIp({ "x-forwarded-for": "198.51.100.9, 10.0.0.2" }, "10.0.0.1", "x-forwarded-for")).toBe("198.51.100.9");
+  });
+
+  it("falls back to the peer address when the trusted header is missing or empty", () => {
+    expect(clientIp({}, "10.0.0.1", "fly-client-ip")).toBe("10.0.0.1");
+    expect(clientIp({ "fly-client-ip": "" }, "10.0.0.1", "fly-client-ip")).toBe("10.0.0.1");
   });
 });

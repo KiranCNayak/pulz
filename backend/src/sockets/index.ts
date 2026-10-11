@@ -7,9 +7,9 @@ import {
   SOCKET_MESSAGE_RATE_LIMIT,
   SOCKET_MESSAGE_RATE_WINDOW_MS,
 } from "../domain/constants.js";
-import { compositeRateKey, SlidingWindowLimiter } from "../domain/rateLimiter.js";
+import { SlidingWindowLimiter } from "../domain/rateLimiter.js";
 import { observeLiveState, rateLimited } from "../observability/metrics.js";
-import { registerSessionHandlers } from "./session.socket.js";
+import { registerSessionHandlers, socketRateKey } from "./session.socket.js";
 
 /**
  * Wires up the Socket.IO realtime layer per ARCHITECTURE.md §1: rooms map
@@ -38,7 +38,7 @@ export function createSocketServer(httpServer: HttpServer): SocketIOServer {
   const connectLimiter = new SlidingWindowLimiter(SOCKET_CONNECT_RATE_LIMIT, SOCKET_CONNECT_RATE_WINDOW_MS);
 
   io.on("connection", (socket) => {
-    const rateKey = compositeRateKey(socket.handshake.address, socket.handshake.auth?.clientId);
+    const rateKey = socketRateKey(socket);
     if (!connectLimiter.consume(rateKey)) {
       rateLimited.add(1, { limiter: "socket_connect" });
       socket.emit("connection:error", { error: "Too many connections — slow down" });

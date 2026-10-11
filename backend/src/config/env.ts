@@ -29,6 +29,10 @@ export const env = {
   resultsTtlHours: intEnv("RESULTS_TTL_HOURS", 24),
   resultsCleanupIntervalMinutes: intEnv("RESULTS_CLEANUP_INTERVAL_MINUTES", 5),
   registerRateLimitPerHour: intEnv("REGISTER_RATE_LIMIT_PER_HOUR", REGISTER_IP_RATE_LIMIT),
+  // Header the hosting proxy puts the visitor's real IP in, for the rate
+  // limiters (see clientIp in domain/rateLimiter.ts). Unset locally, where
+  // there's no proxy; `fly-client-ip` on Fly.io (backend/fly.toml).
+  clientIpHeader: process.env.CLIENT_IP_HEADER || undefined,
 } as const;
 
 export const isProduction = env.nodeEnv === "production";

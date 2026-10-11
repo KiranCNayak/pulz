@@ -1,15 +1,16 @@
-# Local development shortcuts. Dev-only — not a deployment tool (see the
-# note at the top of docker-compose.yml). `make` or `make help` lists targets.
+# Local development shortcuts, plus the cloud-* targets that switch the
+# hosted backend on and off (docs/DEPLOYMENT.md). `make` or `make help`
+# lists targets.
 
 COMPOSE ?= docker compose
 APP_URL := http://localhost:5173
 API_URL := http://localhost:3000
 
 .DEFAULT_GOAL := help
-.PHONY: help up observe down restart logs ps dev install demo test typecheck e2e clean
+.PHONY: help up observe down restart logs ps dev install demo test typecheck e2e clean cloud-up cloud-down cloud-status cloud-deploy
 
 help: ## List the available targets
-	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[1m%-10s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[1m%-13s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # --renew-anon-volumes: node_modules lives in an anonymous volume, which
 # would otherwise keep serving the old packages after a dependency change.
@@ -67,3 +68,15 @@ e2e: ## Run the Playwright suite against the running stack ('make up' first)
 
 clean: ## Stop the Docker stack and delete the database volume
 	$(COMPOSE) down -v
+
+cloud-up: ## Start the hosted backend on Fly.io and wait until it answers (it bills until cloud-down)
+	@./scripts/cloud.sh up
+
+cloud-down: ## Stop the hosted backend (frontend and database stay up; they're free when idle)
+	@./scripts/cloud.sh down
+
+cloud-status: ## Show whether the hosted backend is running
+	@./scripts/cloud.sh status
+
+cloud-deploy: ## Build and deploy the backend to Fly.io, running migrations first
+	@./scripts/cloud.sh deploy

@@ -18,6 +18,8 @@ See:
   settled decisions
 - [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) — monitoring on Grafana
   Cloud: what's collected, setup runbook, alerts
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — production hosting (Fly.io,
+  Neon, Cloudflare Pages), switching the backend on and off, costs
 - [`docs/GO_V2_EXPLORATION.md`](docs/GO_V2_EXPLORATION.md) — scope of the
   `backend-go/` performance exploration (not the MVP backend)
 - [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) — frontend plan,
@@ -42,8 +44,10 @@ See:
 tests); frontend's full user journey (create → start session →
 host/display/play → results) is implemented, manually verified
 end-to-end, and covered by an automated Playwright E2E suite, which is stable
-(Decision #59 fixed the earlier flakiness). Metrics, traces and logs go to
-Grafana Cloud once configured (`docs/OBSERVABILITY.md`); not yet deployed.
+(Decision #59 fixed the earlier flakiness). Production runs on demand: the
+backend is started for games and stopped after (`docs/DEPLOYMENT.md`).
+Metrics, traces and logs go to Grafana Cloud once configured
+(`docs/OBSERVABILITY.md`).
 See [Run it locally](#run-it-locally) below to start it,
 `docs/FRONTEND_PLAN.md` for the frontend plan, and `CLAUDE.md` for the full
 up-to-date picture.
@@ -103,6 +107,8 @@ a backend restart just run `make demo` again.
 | `make typecheck` | Typecheck backend and frontend |
 | `make e2e` | Playwright end-to-end suite against the running stack |
 | `make clean` | Stop the stack and delete the database volume |
+| `make cloud-up` / `cloud-down` / `cloud-status` | Start, stop or check the hosted backend ([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)) |
+| `make cloud-deploy` | Build and deploy the backend to Fly.io |
 
 `make` on its own prints this list.
 

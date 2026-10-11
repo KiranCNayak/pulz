@@ -1,0 +1,56 @@
+# Fly.io config for the Pulz backend (docs/DEPLOYMENT.md, Decision #71).
+# Deploy with `make cloud-deploy`; start and stop with `make cloud-up` /
+# `make cloud-down`. Secrets (DATABASE_URL, OTEL_*) are set with
+# `fly secrets set`, never here.
+
+app = "pulz-api"
+# Singapore: Fly's closest region to India (it has no Mumbai region).
+# Create the Neon project in AWS Singapore too, so queries stay in-region.
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile.prod"
+
+[deploy]
+  # Runs in a short-lived machine from the new image before it goes live;
+  # a failed migration aborts the deploy.
+  release_command = "npx prisma migrate deploy"
+
+[env]
+  NODE_ENV = "production"
+  HOST = "0.0.0.0"
+  PORT = "3000"
+  CORS_ORIGIN = "https://pulz.knayak.fyi"
+  # Fly's proxy sets this to the visitor's IP on every request, and it is
+  # the only way in, so the rate limiters can trust it.
+  CLIENT_IP_HEADER = "fly-client-ip"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # On demand, not always on: only `make cloud-up` starts the machine and
+  # only `make cloud-down` (or the cloud-guard workflow) stops it. Fly's
+  # idle auto-stop is off because a Creator editing a quiz makes no
+  # requests for minutes at a time, and auto-start is off so that stray
+  # requests (bots, scanners) can't wake it.
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 0
+
+  # Every player, host and display holds a WebSocket. Fly's default hard
+  # limit is 25 connections per machine, which one class would exceed.
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 400
+    hard_limit = 500
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

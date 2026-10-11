@@ -99,6 +99,11 @@ the JSON back into the repo so local and cloud stay in step.
 
 ### 5. Uptime check
 
+**Skip this with the on-demand setup** (`docs/DEPLOYMENT.md`, Decision
+#71): the backend is off most of the time on purpose, so the check would
+report an outage constantly, and `make cloud-up` already waits for
+`/health`. It's only worth adding if the backend ever runs always on.
+
 Grafana → Testing & synthetics → **Synthetics** → Add new check → **HTTP**:
 
 - URL: `https://pulz-api.knayak.fyi/health`

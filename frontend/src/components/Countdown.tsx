@@ -44,7 +44,7 @@ export function Countdown({ deadline, durationSeconds, stopped, size = 'default'
       className={cn(
         'relative grid shrink-0 place-items-center',
         size === 'large' ? 'size-28 text-4xl' : 'size-14 text-lg',
-        urgent && 'rounded-full bg-[#e21b3c] text-white motion-safe:animate-[countdown-tick_1s_ease-in-out_infinite]',
+        urgent && 'rounded-full bg-urgent text-white motion-safe:animate-[countdown-tick_1s_ease-in-out_infinite]',
         className,
       )}
     >
@@ -63,7 +63,7 @@ export function Countdown({ deadline, durationSeconds, stopped, size = 'default'
           className="transition-[stroke-dashoffset] duration-300 ease-linear"
         />
       </svg>
-      <span className="font-bold tabular-nums">{seconds}</span>
+      <span className="font-display font-bold tabular-nums">{seconds}</span>
     </div>
   )
 }

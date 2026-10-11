@@ -21,7 +21,7 @@ test('full game flow: create, host, play, and view results', async ({ browser })
   const hostPage = await hostContext.newPage()
   await hostPage.goto(hostHref)
   await expect(hostPage.getByText('Host Controller')).toBeVisible()
-  await expect(hostPage.getByText('LOBBY', { exact: true })).toBeVisible()
+  await expect(hostPage.getByText('Lobby', { exact: true })).toBeVisible()
 
   const displayContext = await browser.newContext()
   const displayPage = await displayContext.newPage()
@@ -55,8 +55,8 @@ test('full game flow: create, host, play, and view results', async ({ browser })
   // Points earned depend on answer time (PRD §5, 1000 down to 500) —
   // assert the shape, not an exact value, since answer latency varies.
   await expect(playerPage.getByText('Correct!')).toBeVisible()
-  const pointsText = await playerPage.getByText(/^\+\d+ points$/).textContent()
-  const pointsEarned = pointsText?.match(/\+(\d+) points/)?.[1]
+  const pointsText = await playerPage.getByText(/^\+[\d,]+ points$/).textContent()
+  const pointsEarned = pointsText?.match(/\+([\d,]+) points/)?.[1]
   expect(pointsEarned).toBeTruthy()
   await expect(playerPage.getByText('Rank 1 of 1')).toBeVisible()
 

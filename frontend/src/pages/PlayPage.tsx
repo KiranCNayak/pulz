@@ -8,6 +8,8 @@ import { Countdown } from '@/components/Countdown'
 import { GameStage } from '@/components/GameStage'
 import { Button } from '@/components/ui/button'
 import { getParticipantToken, setParticipantToken, useGameSocket } from '@/hooks/useGameSocket'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { formatNumber } from '@/lib/format'
 import { questionDeadline } from '@/lib/questionTimer'
 import { getSocket } from '@/lib/socket'
 import { cn } from '@/lib/utils'
@@ -62,6 +64,7 @@ type Phase = 'connecting' | 'lobby' | 'question' | 'locked' | 'result' | 'ended'
 export function PlayPage() {
   const { sessionId: joinCode } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  useDocumentTitle('Playing')
 
   // Re-sent on every socket `connect` (initial + auto-reconnect after a
   // transport-level drop, not just on page reload — see useGameSocket).
@@ -212,17 +215,17 @@ export function PlayPage() {
   if (phase === 'error') {
     return (
       <StageMessage>
-        <p className="text-xl font-semibold">{error}</p>
-        <Link to="/join" className="text-stage-muted underline underline-offset-4">
+        <p className="max-w-sm font-display text-2xl font-bold">{error}</p>
+        <Button size="lg" render={<Link to="/join" />}>
           Back to join
-        </Link>
+        </Button>
       </StageMessage>
     )
   }
   if (connectionError) {
     return (
       <StageMessage>
-        <p className="text-xl font-semibold">{connectionError}</p>
+        <p className="max-w-sm font-display text-2xl font-bold">{connectionError}</p>
         <p className="text-stage-muted">Reload the page to try again.</p>
       </StageMessage>
     )
@@ -230,8 +233,8 @@ export function PlayPage() {
   if (phase === 'connecting') {
     return (
       <StageMessage>
-        <LoaderCircle aria-hidden="true" className="size-10 motion-safe:animate-spin" />
-        <p className="text-lg">Connecting…</p>
+        <LoaderCircle aria-hidden="true" className="size-10 text-stage-muted motion-safe:animate-spin" />
+        <p className="text-lg font-medium">Connecting…</p>
       </StageMessage>
     )
   }
@@ -239,19 +242,24 @@ export function PlayPage() {
     return (
       <StageMessage>
         <ShapeParade />
-        <h1 className="text-4xl font-black tracking-tight">You're in!</h1>
+        <h1 className="font-display text-5xl font-extrabold tracking-tight">You're in!</h1>
         {displayName ? (
-          <p className="max-w-full rounded-3xl bg-white/10 px-5 py-2 text-xl font-semibold [overflow-wrap:anywhere]">
+          <p className="max-w-full rounded-full bg-white/10 px-6 py-2.5 font-display text-2xl font-bold ring-1 ring-stage-line [overflow-wrap:anywhere]">
             {displayName}
           </p>
         ) : null}
-        <p className="text-stage-muted">Waiting for the host to start the game...</p>
+        <p className="flex items-center gap-2.5 text-stage-muted">
+          <span aria-hidden="true" className="relative flex size-2">
+            <span className="absolute inline-flex size-full rounded-full bg-signal opacity-70 motion-safe:animate-ping" />
+            <span className="relative inline-flex size-2 rounded-full bg-signal" />
+          </span>
+          Waiting for the host to start the game…
+        </p>
         {role === 'SPECTATOR' ? (
           <div className="mt-4 flex flex-col items-center gap-3">
             <p className="text-sm text-stage-muted">The game already started, so you're spectating for now.</p>
             <Button
               size="lg"
-              className="bg-white text-stage hover:bg-white/90"
               onClick={handleRequestPromotion}
               disabled={promotionRequested}
             >
@@ -265,8 +273,8 @@ export function PlayPage() {
   if (phase === 'ended') {
     return (
       <StageMessage>
-        <LoaderCircle aria-hidden="true" className="size-10 motion-safe:animate-spin" />
-        <p className="text-lg">Game over — heading to results...</p>
+        <LoaderCircle aria-hidden="true" className="size-10 text-stage-muted motion-safe:animate-spin" />
+        <p className="text-lg font-medium">Game over. Heading to results…</p>
       </StageMessage>
     )
   }
@@ -281,19 +289,19 @@ export function PlayPage() {
     return (
       <div
         className={cn(
-          'flex min-h-dvh flex-col items-center justify-center gap-5 p-6 text-center text-white',
+          'flex min-h-dvh flex-col items-center justify-center gap-5 px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-white',
           tone === 'correct' && 'bg-stage-correct',
           tone === 'incorrect' && 'bg-stage-incorrect',
           tone === 'timeout' && 'bg-stage',
         )}
       >
-        <div className="grid size-24 place-items-center rounded-full bg-white/20 motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300">
+        <div className="grid size-24 place-items-center rounded-full bg-white/20 ring-8 ring-white/10 motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300">
           <Icon aria-hidden="true" strokeWidth={3} className="size-14" />
         </div>
-        <h1 className="text-5xl font-black tracking-tight">
+        <h1 className="font-display text-5xl font-extrabold tracking-tight">
           {tone === 'correct' ? 'Correct!' : tone === 'incorrect' ? 'Not quite.' : "Time's up!"}
         </h1>
-        <p className="rounded-full bg-black/20 px-6 py-2 text-2xl font-bold tabular-nums">+{result.pointsEarned} points</p>
+        <p className="rounded-full bg-black/20 px-6 py-2 font-display text-2xl font-bold tabular-nums">+{formatNumber(result.pointsEarned)} points</p>
         <p className="text-lg font-medium">
           Rank {result.myRank} of {result.totalPlayers}
         </p>
@@ -314,7 +322,7 @@ export function PlayPage() {
     <GameStage>
       <header className="flex items-center gap-3 px-4 pt-4">
         {question ? (
-          <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold tabular-nums">
+          <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold tabular-nums ring-1 ring-stage-line">
             Q {question.index + 1}/{question.total}
           </span>
         ) : null}
@@ -330,7 +338,7 @@ export function PlayPage() {
       </header>
 
       {question ? (
-        <h1 className="px-5 pt-4 pb-2 text-center text-2xl leading-tight font-bold [overflow-wrap:anywhere] sm:text-3xl">
+        <h1 className="px-5 pt-4 pb-2 text-center font-display text-2xl leading-tight font-bold [overflow-wrap:anywhere] sm:text-3xl">
           {question.text}
         </h1>
       ) : null}
@@ -343,11 +351,10 @@ export function PlayPage() {
           // so the request has to live here, not just in the lobby.
           <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
             <span className="text-stage-muted">
-              {promotionDenied ? 'The host said not yet — you can ask again.' : "You joined mid-game, so you're watching."}
+              {promotionDenied ? 'The host said not yet. You can ask again.' : "You joined mid-game, so you're watching."}
             </span>
             <Button
               size="sm"
-              className="bg-white text-stage hover:bg-white/90"
               onClick={handleRequestPromotion}
               disabled={promotionRequested}
             >
@@ -357,11 +364,11 @@ export function PlayPage() {
         ) : answerError && !result ? (
           <span className="rounded-full bg-stage-incorrect px-4 py-1.5 font-medium">{answerError}</span>
         ) : phase === 'locked' ? (
-          <span className="font-medium">Answers locked — revealing soon...</span>
+          <span className="font-medium">Answers locked. Revealing soon…</span>
         ) : answerAcked ? (
-          <span className="flex items-center gap-2 rounded-full bg-white px-4 py-1.5 font-semibold text-stage">
+          <span className="flex items-center gap-2 rounded-full bg-signal px-4 py-1.5 font-semibold text-[#0e1118] motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-200">
             <CircleCheck aria-hidden="true" className="size-4" />
-            Answer received — waiting for the host...
+            Answer received. Waiting for the host…
           </span>
         ) : selectedOptionId ? (
           <span className="text-stage-muted">Sending your answer…</span>

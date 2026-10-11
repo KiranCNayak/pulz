@@ -53,6 +53,8 @@ the repo bind-mounted for live reload. Frontend: `http://localhost:5173`.
 Backend: `http://localhost:3000`. This is dev-only — not a production
 deployment manifest (see the comment at the top of `docker-compose.yml`).
 
+Visual design lives in `docs/DESIGN_SYSTEM.md` (Decision #68).
+
 With the stack running, `cd frontend && npm run test:e2e` runs the
 Playwright E2E suite (Decision #52) against it.
 

@@ -13,9 +13,17 @@ const PATHS: Record<AnswerOption['shape'], React.ReactNode> = {
  * color-blind players and on a washed-out projector. Decorative: the
  * option's text label is what assistive tech announces.
  */
-export function AnswerShape({ shape, className }: { shape: AnswerOption['shape']; className?: string }) {
+export function AnswerShape({
+  shape,
+  className,
+  style,
+}: {
+  shape: AnswerOption['shape']
+  className?: string
+  style?: React.CSSProperties
+}) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className} style={style}>
       {PATHS[shape]}
     </svg>
   )

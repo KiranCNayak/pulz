@@ -1,7 +1,8 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { CreateQuizPage } from '@/pages/CreateQuizPage'
 import { DisplayPage } from '@/pages/DisplayPage'
 import { EditQuizPage } from '@/pages/EditQuizPage'
+import { HomePage } from '@/pages/HomePage'
 import { HostPage } from '@/pages/HostPage'
 import { JoinPage } from '@/pages/JoinPage'
 import { PlayPage } from '@/pages/PlayPage'
@@ -11,7 +12,7 @@ import { ResultsPage } from '@/pages/ResultsPage'
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/join" replace />} />
+      <Route path="/" element={<HomePage />} />
       <Route path="/create" element={<CreateQuizPage />} />
       <Route path="/quizzes/:quizId/edit" element={<EditQuizPage />} />
       <Route path="/host/:sessionId" element={<HostPage />} />

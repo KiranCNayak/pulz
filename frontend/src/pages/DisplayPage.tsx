@@ -3,10 +3,13 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { Check, ChevronUp, Crown, Loader2, TriangleAlert, Trophy, Users, X } from 'lucide-react'
 import { AnswerGrid } from '@/components/AnswerGrid'
 import { AnswerShape } from '@/components/AnswerShape'
-import { ANSWER_SLOT_STYLES, toAnswerOptions } from '@/components/answerStyles'
+import { toAnswerOptions } from '@/components/answerStyles'
 import { Countdown } from '@/components/Countdown'
 import { GameStage } from '@/components/GameStage'
+import { Wordmark } from '@/components/Logo'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGameSocket } from '@/hooks/useGameSocket'
+import { formatNumber } from '@/lib/format'
 import { questionDeadline } from '@/lib/questionTimer'
 import { getSocket } from '@/lib/socket'
 import { cn } from '@/lib/utils'
@@ -76,6 +79,7 @@ const MAX_LOBBY_CHIPS = 36
  * stage (Decision #55), sized to read from the back of a room.
  */
 export function DisplayPage() {
+  useDocumentTitle('Display')
   const { sessionId } = useParams<{ sessionId: string }>()
   const [searchParams] = useSearchParams()
   const displayToken = searchParams.get('token')
@@ -210,7 +214,7 @@ export function DisplayPage() {
 
   if (!question) {
     if (sessionStatus === 'IN_PROGRESS') {
-      return <StageMessage tone="loading">Game in progress — the next question will appear here</StageMessage>
+      return <StageMessage tone="loading">Game in progress. The next question will appear here.</StageMessage>
     }
     return <LobbyScreen joinCode={joinCode} participants={participants} />
   }
@@ -224,26 +228,13 @@ export function DisplayPage() {
 
 // ─── Shared bits ────────────────────────────────────────────────────────
 
-function Wordmark({ className }: { className?: string }) {
-  return (
-    <div className={cn('flex items-center gap-3 text-3xl font-black tracking-tight', className)}>
-      <span className="grid size-11 grid-cols-2 gap-1 rounded-xl bg-white/10 p-1.5" aria-hidden="true">
-        {ANSWER_SLOT_STYLES.map((slot) => (
-          <span key={slot.shape} className="rounded-sm" style={{ backgroundColor: slot.color }} />
-        ))}
-      </span>
-      Pulz
-    </div>
-  )
-}
-
 function StageMessage({ tone, children }: { tone: 'error' | 'loading'; children: React.ReactNode }) {
   return (
     <GameStage className="items-center justify-center gap-10 p-12 text-center">
-      <Wordmark className="text-5xl" />
+      <Wordmark className="gap-4 text-5xl" markClassName="size-16 rounded-2xl p-3" />
       <div className="flex max-w-4xl flex-col items-center gap-6 text-4xl font-semibold text-balance">
         {tone === 'error' ? (
-          <TriangleAlert aria-hidden="true" className="size-12 shrink-0 text-[#ff5c7a]" />
+          <TriangleAlert aria-hidden="true" className="size-12 shrink-0 text-[#f2738a]" />
         ) : (
           <Loader2 aria-hidden="true" className="size-12 shrink-0 text-stage-muted motion-safe:animate-spin" />
         )}
@@ -255,7 +246,7 @@ function StageMessage({ tone, children }: { tone: 'error' | 'loading'; children:
 
 function QuestionProgress({ question }: { question: QuestionBroadcast }) {
   return (
-    <div className="rounded-full bg-white/10 px-7 py-3 text-3xl font-bold tabular-nums ring-1 ring-white/15">
+    <div className="rounded-full bg-white/10 px-7 py-3 font-display text-3xl font-bold tabular-nums ring-1 ring-stage-line">
       Question {question.index + 1} <span className="text-stage-muted">of {question.total}</span>
     </div>
   )
@@ -270,21 +261,21 @@ function LobbyScreen({ joinCode, participants }: { joinCode: string | null; part
   return (
     <GameStage className="gap-8 px-12 py-10">
       <header className="flex items-center justify-between">
-        <Wordmark />
-        <div className="flex items-center gap-3 rounded-full bg-white/10 px-6 py-3 text-3xl font-bold tabular-nums ring-1 ring-white/15">
+        <Wordmark className="text-3xl" markClassName="size-12 rounded-xl p-2.5" />
+        <div className="flex items-center gap-3 rounded-full bg-white/10 px-6 py-3 font-display text-3xl font-bold tabular-nums ring-1 ring-stage-line">
           <Users aria-hidden="true" className="size-8" />
           {players.length} {players.length === 1 ? 'player' : 'players'}
         </div>
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-10">
-        <section className="flex w-full max-w-[min(64rem,70vw)] flex-col items-center overflow-hidden rounded-[2rem] bg-white text-stage shadow-[0_12px_0_rgb(0_0_0/0.35)] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
-          <p className="w-full bg-stage/[0.06] px-10 py-5 text-center text-[clamp(2.25rem,2.5vw,3rem)] font-semibold text-stage/70">
-            Join at <strong className="font-extrabold text-stage [overflow-wrap:anywhere]">{joinUrl}</strong>
+        <section className="flex w-full max-w-[min(64rem,70vw)] flex-col items-center overflow-hidden rounded-3xl bg-stage-foreground text-[#0e1118] shadow-[0_12px_0_rgb(0_0_0/0.4)] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
+          <p className="w-full border-b border-[#0e1118]/10 bg-[#0e1118]/[0.04] px-10 py-5 text-center text-[clamp(2.25rem,2.5vw,3rem)] font-semibold text-[#0e1118]/65">
+            Join at <strong className="font-display font-extrabold text-[#0e1118] [overflow-wrap:anywhere]">{joinUrl}</strong>
           </p>
           <div className="flex flex-col items-center gap-2 px-10 pt-6 pb-9">
-            <p className="text-2xl font-bold tracking-[0.3em] text-stage/55 uppercase">Game PIN</p>
-            <p className="pl-[0.15em] font-mono text-[clamp(7rem,10.5vw,13rem)] leading-none font-black tracking-[0.15em]">
+            <p className="text-2xl font-bold tracking-[0.3em] text-[#0e1118]/55 uppercase">Game PIN</p>
+            <p translate="no" className="pl-[0.15em] font-mono text-[clamp(7rem,10.5vw,13rem)] leading-none font-bold tracking-[0.15em]">
               {joinCode ?? '······'}
             </p>
           </div>
@@ -298,7 +289,7 @@ function LobbyScreen({ joinCode, participants }: { joinCode: string | null; part
               <li
                 key={player.id}
                 className={cn(
-                  'max-w-md truncate rounded-full bg-white/12 font-bold ring-1 ring-white/20 motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:fade-in motion-safe:duration-300',
+                  'max-w-md truncate rounded-full bg-white/10 font-display font-bold ring-1 ring-stage-line motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:fade-in motion-safe:duration-300',
                   players.length > 16 ? 'px-5 py-2 text-2xl' : 'px-7 py-3 text-3xl',
                 )}
               >
@@ -316,8 +307,8 @@ function LobbyScreen({ joinCode, participants }: { joinCode: string | null; part
 
       <footer className="flex items-center justify-center gap-4 text-3xl font-semibold text-stage-muted">
         <span className="relative flex size-4" aria-hidden="true">
-          <span className="absolute inline-flex size-full rounded-full bg-stage-muted opacity-75 motion-safe:animate-ping" />
-          <span className="relative inline-flex size-4 rounded-full bg-stage-muted" />
+          <span className="absolute inline-flex size-full rounded-full bg-signal opacity-75 motion-safe:animate-ping" />
+          <span className="relative inline-flex size-4 rounded-full bg-signal" />
         </span>
         Waiting for the host to start the game…
       </footer>
@@ -349,7 +340,7 @@ function QuestionScreen({ question, deadline }: { question: QuestionBroadcast; d
         key={question.questionId}
         className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-6 motion-safe:duration-500"
       >
-        <h1 className="max-w-7xl text-center text-[clamp(3rem,5vw,5.75rem)] leading-[1.08] font-extrabold tracking-tight text-balance">
+        <h1 className="max-w-7xl text-center font-display text-[clamp(3rem,5vw,5.75rem)] leading-[1.08] font-extrabold tracking-tight text-balance">
           {question.text}
         </h1>
         {question.mediaUrl && (
@@ -394,7 +385,7 @@ function RevealScreen({
         <QuestionProgress question={question} />
         <div
           className={cn(
-            'rounded-full px-7 py-3 text-3xl font-black tracking-wide uppercase shadow-[0_5px_0_rgb(0_0_0/0.3)]',
+            'rounded-full px-7 py-3 font-display text-3xl font-extrabold tracking-wide uppercase shadow-[0_5px_0_rgb(0_0_0/0.3)]',
             lockReason === 'timer' ? 'bg-stage-incorrect' : lockReason === 'all_answered' ? 'bg-stage-correct' : 'bg-white/15',
           )}
         >
@@ -410,7 +401,7 @@ function RevealScreen({
 
       <main className="flex min-h-0 flex-1 flex-col justify-center gap-8">
         <div className="flex flex-col items-center gap-3">
-          <p className="line-clamp-2 max-w-6xl text-center text-4xl leading-tight font-bold text-balance text-white/80">
+          <p className="line-clamp-2 max-w-6xl text-center font-display text-4xl leading-tight font-bold text-balance text-stage-muted">
             {question.text}
           </p>
           {correctCount !== null && (
@@ -463,24 +454,24 @@ function RevealHeadline({ correctCount, playerCount }: { correctCount: number; p
       >
         {correctCount === 0 ? <X strokeWidth={4} className="size-14" /> : <Check strokeWidth={4} className="size-14" />}
       </span>
-      <h1 className="text-[5.25rem] leading-none font-black tracking-tight">{text}</h1>
+      <h1 className="font-display text-[5.25rem] leading-none font-extrabold tracking-tight">{text}</h1>
     </div>
   )
 }
 
 const RANK_BADGE: Record<number, string> = {
-  1: 'bg-amber-400 text-amber-950',
-  2: 'bg-slate-200 text-slate-800',
-  3: 'bg-orange-400 text-orange-950',
+  1: 'bg-medal-gold text-[#0e1118]',
+  2: 'bg-medal-silver text-[#0e1118]',
+  3: 'bg-medal-bronze text-[#0e1118]',
 }
 
 function LeaderboardPanel({ standings }: { standings: Standing[] }) {
   const top = standings.slice(0, LEADERBOARD_SIZE)
 
   return (
-    <section className="flex flex-col gap-4 rounded-[1.75rem] bg-stage-raised/85 p-6 shadow-[0_10px_0_rgb(0_0_0/0.3)] ring-1 ring-white/10">
-      <h2 className="flex items-center gap-3 px-2 text-3xl font-black">
-        <Trophy aria-hidden="true" className="size-9 text-amber-300" />
+    <section className="flex flex-col gap-4 rounded-3xl bg-stage-raised p-6 shadow-[0_10px_0_rgb(0_0_0/0.35)] ring-1 ring-stage-line">
+      <h2 className="flex items-center gap-3 px-2 text-3xl font-extrabold">
+        <Trophy aria-hidden="true" className="size-9 text-medal-gold" />
         Leaderboard
       </h2>
       <ol className="flex flex-col gap-3">
@@ -490,31 +481,31 @@ function LeaderboardPanel({ standings }: { standings: Standing[] }) {
             style={{ animationDelay: `${index * 90}ms` }}
             className={cn(
               'flex items-center gap-4 rounded-2xl px-4 py-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-8 motion-safe:duration-500 motion-safe:fill-mode-backwards',
-              entry.rank === 1 ? 'bg-white/15 ring-2 ring-amber-300/70' : 'bg-white/[0.07]',
+              entry.rank === 1 ? 'bg-white/[0.12] ring-2 ring-medal-gold/70' : 'bg-white/[0.06]',
             )}
           >
             <span
               className={cn(
-                'grid size-14 shrink-0 place-items-center rounded-full text-3xl font-black tabular-nums',
+                'grid size-14 shrink-0 place-items-center rounded-full font-display text-3xl font-extrabold tabular-nums',
                 RANK_BADGE[entry.rank] ?? 'bg-white/15 text-white',
               )}
             >
               {entry.rank}
             </span>
-            <span className="min-w-0 flex-1 truncate text-4xl font-bold">{entry.displayName}</span>
+            <span className="min-w-0 flex-1 truncate font-display text-4xl font-bold">{entry.displayName}</span>
             {entry.rankChange > 0 && (
-              <span className="flex shrink-0 items-center text-2xl font-black text-emerald-300 tabular-nums">
+              <span className="flex shrink-0 items-center text-2xl font-extrabold text-signal tabular-nums">
                 <ChevronUp aria-hidden="true" strokeWidth={3.5} className="size-7" />
                 <span className="sr-only">Up </span>
                 {entry.rankChange}
               </span>
             )}
             {entry.gained > 0 && (
-              <span className="shrink-0 rounded-full bg-emerald-400/15 px-3 py-0.5 text-2xl font-bold text-emerald-300 tabular-nums">
-                +{entry.gained}
+              <span className="shrink-0 rounded-full bg-signal/15 px-3 py-0.5 text-2xl font-bold text-signal tabular-nums">
+                +{formatNumber(entry.gained)}
               </span>
             )}
-            <span className="min-w-28 shrink-0 text-right text-4xl font-black tabular-nums">{entry.score}</span>
+            <span className="min-w-36 shrink-0 text-right font-display text-4xl font-extrabold tabular-nums">{formatNumber(entry.score)}</span>
           </li>
         ))}
       </ol>
@@ -536,9 +527,9 @@ const PODIUM_PLACES = [
 ]
 
 const PODIUM_COLORS: Record<number, string> = {
-  1: 'from-amber-300 to-amber-500 text-amber-950',
-  2: 'from-slate-100 to-slate-300 text-slate-800',
-  3: 'from-orange-300 to-orange-500 text-orange-950',
+  1: 'bg-medal-gold text-[#0e1118]',
+  2: 'bg-medal-silver text-[#0e1118]',
+  3: 'bg-medal-bronze text-[#0e1118]',
 }
 
 /** Fixed confetti scatter (answer-tile shapes/colors) — deterministic so
@@ -576,7 +567,7 @@ function GameOverScreen({ standings }: { standings: Standing[] | null }) {
     <GameStage className="items-center gap-6 px-12 pt-10 pb-8">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_32%_48%_at_50%_58%,rgb(251_191_36/0.26),transparent_70%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_32%_48%_at_50%_62%,rgb(245_200_75/0.16),transparent_70%)]"
       />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         {CONFETTI.map((piece, index) => (
@@ -596,8 +587,8 @@ function GameOverScreen({ standings }: { standings: Standing[] | null }) {
         ))}
       </div>
 
-      <h1 className="relative flex items-center gap-5 text-8xl font-black tracking-tight motion-safe:animate-in motion-safe:zoom-in-75 motion-safe:fade-in motion-safe:duration-700">
-        <Trophy aria-hidden="true" className="size-20 text-amber-300" />
+      <h1 className="relative flex items-center gap-5 font-display text-8xl font-extrabold tracking-tight motion-safe:animate-in motion-safe:zoom-in-75 motion-safe:fade-in motion-safe:duration-700">
+        <Trophy aria-hidden="true" className="size-20 text-medal-gold" />
         Game over!
       </h1>
 
@@ -614,19 +605,19 @@ function GameOverScreen({ standings }: { standings: Standing[] | null }) {
                   place.order,
                 )}
               >
-                {entry.rank === 1 && <Crown aria-hidden="true" className="size-16 text-amber-300 drop-shadow-lg" />}
-                <p className={cn('max-w-full truncate px-2 font-black', index === 0 ? 'text-6xl' : 'text-5xl')}>
+                {entry.rank === 1 && <Crown aria-hidden="true" className="size-16 text-medal-gold drop-shadow-lg" />}
+                <p className={cn('max-w-full truncate px-2 font-display font-extrabold', index === 0 ? 'text-6xl' : 'text-5xl')}>
                   {entry.displayName}
                 </p>
-                <p className="mb-2 text-3xl font-bold text-stage-muted tabular-nums">{entry.score} pts</p>
+                <p className="mb-2 text-3xl font-bold text-stage-muted tabular-nums">{formatNumber(entry.score)} pts</p>
                 <div
                   className={cn(
-                    'flex w-full items-start justify-center rounded-t-3xl bg-gradient-to-b pt-5 shadow-[0_-8px_40px_rgb(0_0_0/0.25)]',
+                    'flex w-full items-start justify-center rounded-t-3xl pt-5 shadow-[inset_0_2px_0_rgb(255_255_255/0.45),0_-8px_40px_rgb(0_0_0/0.3)]',
                     place.height,
-                    PODIUM_COLORS[entry.rank] ?? 'from-white/25 to-white/10 text-white',
+                    PODIUM_COLORS[entry.rank] ?? 'bg-stage-elevated text-white',
                   )}
                 >
-                  <span className="text-8xl font-black tabular-nums">{entry.rank}</span>
+                  <span className="font-display text-8xl font-extrabold tabular-nums opacity-85">{entry.rank}</span>
                 </div>
               </div>
             )
@@ -641,13 +632,13 @@ function GameOverScreen({ standings }: { standings: Standing[] | null }) {
           {rest.map((entry) => (
             <li
               key={entry.participantId}
-              className="flex items-center gap-3 rounded-full bg-white/10 py-2 pr-6 pl-2 text-3xl font-bold ring-1 ring-white/15"
+              className="flex items-center gap-3 rounded-full bg-white/10 py-2 pr-6 pl-2 font-display text-3xl font-bold ring-1 ring-stage-line"
             >
               <span className="grid size-11 place-items-center rounded-full bg-white/15 text-2xl tabular-nums">
                 {entry.rank}
               </span>
               <span className="max-w-72 truncate">{entry.displayName}</span>
-              <span className="text-stage-muted tabular-nums">{entry.score}</span>
+              <span className="text-stage-muted tabular-nums">{formatNumber(entry.score)}</span>
             </li>
           ))}
         </ol>

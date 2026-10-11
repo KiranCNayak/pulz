@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { Check, Plus, Timer, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,7 @@ import {
   QUESTION_TIME_LIMIT_MAX_SECONDS,
   QUESTION_TIME_LIMIT_MIN_SECONDS,
 } from '@/lib/quizConstants'
+import { cn } from '@/lib/utils'
 import type { QuestionInput } from '@/types/quiz'
 
 type QuizQuestionFormProps = {
@@ -16,9 +17,16 @@ type QuizQuestionFormProps = {
   value: QuestionInput
   onChange: (value: QuestionInput) => void
   onRemove?: () => void
+  /** Rendered under the options (the Edit page's Save/Delete row). */
+  footer?: React.ReactNode
 }
 
-export function QuizQuestionForm({ index, value, onChange, onRemove }: QuizQuestionFormProps) {
+// Options get neutral letters, not answer-tile colours: option order is
+// shuffled once per session (answerStyles.ts), so the colour shown here
+// wouldn't match the tile players see.
+const OPTION_LETTERS = ['A', 'B', 'C', 'D']
+
+export function QuizQuestionForm({ index, value, onChange, onRemove, footer }: QuizQuestionFormProps) {
   const clampTimeLimit = (seconds: number) =>
     Math.min(QUESTION_TIME_LIMIT_MAX_SECONDS, Math.max(QUESTION_TIME_LIMIT_MIN_SECONDS, seconds))
 
@@ -45,85 +53,118 @@ export function QuizQuestionForm({ index, value, onChange, onRemove }: QuizQuest
   const correctIndex = value.options.findIndex((option) => option.isCorrect)
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="flex-1 space-y-1.5">
-          <Label htmlFor={`question-${index}-text`}>Question {index + 1}</Label>
-          <Input
-            id={`question-${index}-text`}
-            placeholder="What do you want to ask?"
-            value={value.text}
-            onChange={(e) => onChange({ ...value, text: e.target.value })}
-          />
-        </div>
-        {onRemove && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="mt-6 text-muted-foreground hover:text-destructive"
-            onClick={onRemove}
-            aria-label="Remove question"
-          >
-            <Trash2 />
-          </Button>
-        )}
-      </div>
-
-      <div className="mt-4 flex items-center gap-2">
-        <Label htmlFor={`question-${index}-time`} className="text-muted-foreground font-normal">
-          Time limit
-        </Label>
-        <Input
-          id={`question-${index}-time`}
-          type="number"
-          min={QUESTION_TIME_LIMIT_MIN_SECONDS}
-          max={QUESTION_TIME_LIMIT_MAX_SECONDS}
-          className="w-20"
-          value={value.timeLimitSeconds ?? QUESTION_TIME_LIMIT_MIN_SECONDS}
-          onChange={(e) => onChange({ ...value, timeLimitSeconds: clampTimeLimit(Number(e.target.value)) })}
-        />
-        <span className="text-sm text-muted-foreground">seconds</span>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        <RadioGroup
-          value={correctIndex >= 0 ? correctIndex.toString() : undefined}
-          onValueChange={(val) => setCorrectOption(Number(val))}
-        >
-          {value.options.map((option, optionIndex) => (
-            <div key={optionIndex} className="flex items-center gap-2">
-              <RadioGroupItem
-                value={optionIndex.toString()}
-                aria-label={`Option ${optionIndex + 1} is correct`}
-              />
+    <section className="rounded-2xl border border-border bg-card shadow-soft">
+      <div className="flex flex-col gap-5 p-5 sm:p-6">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex min-w-[min(100%,14rem)] flex-1 flex-col gap-2">
+            <Label htmlFor={`question-${index}-text`}>Question {index + 1}</Label>
+            <Input
+              id={`question-${index}-text`}
+              name={`question-${index}-text`}
+              autoComplete="off"
+              placeholder="What do you want to ask?"
+              value={value.text}
+              onChange={(e) => onChange({ ...value, text: e.target.value })}
+              className="h-12 font-display text-lg font-semibold md:text-lg"
+            />
+          </div>
+          <div className="flex shrink-0 flex-col gap-2">
+            <Label htmlFor={`question-${index}-time`} className="font-medium text-muted-foreground">
+              <Timer aria-hidden="true" className="size-3.5" />
+              Time limit
+            </Label>
+            <div className="relative">
               <Input
-                className="flex-1"
-                placeholder={`Option ${optionIndex + 1}`}
-                value={option.text}
-                onChange={(e) => setOptionText(optionIndex, e.target.value)}
+                id={`question-${index}-time`}
+                name={`question-${index}-time`}
+                type="number"
+                inputMode="numeric"
+                min={QUESTION_TIME_LIMIT_MIN_SECONDS}
+                max={QUESTION_TIME_LIMIT_MAX_SECONDS}
+                className="h-12 w-24 pr-8 tabular-nums"
+                value={value.timeLimitSeconds ?? QUESTION_TIME_LIMIT_MIN_SECONDS}
+                onChange={(e) => onChange({ ...value, timeLimitSeconds: clampTimeLimit(Number(e.target.value)) })}
               />
-              {value.options.length > QUESTION_OPTIONS_MIN && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() => removeOption(optionIndex)}
-                  aria-label={`Remove option ${optionIndex + 1}`}
-                >
-                  <Trash2 />
-                </Button>
-              )}
+              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">
+                s
+              </span>
             </div>
-          ))}
-        </RadioGroup>
-        {value.options.length < QUESTION_OPTIONS_MAX && (
-          <Button type="button" variant="outline" size="sm" onClick={addOption}>
-            <Plus /> Add option
-          </Button>
-        )}
+          </div>
+          {onRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="mb-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={onRemove}
+              aria-label="Remove question"
+            >
+              <Trash2 aria-hidden="true" />
+            </Button>
+          )}
+        </div>
+
+        <fieldset className="flex flex-col gap-2.5">
+          <legend className="mb-2.5 text-sm font-semibold">
+            Answers <span className="font-normal text-muted-foreground">· select the correct one</span>
+          </legend>
+          <RadioGroup
+            value={correctIndex >= 0 ? correctIndex.toString() : undefined}
+            onValueChange={(val) => setCorrectOption(Number(val))}
+            className="gap-2.5"
+          >
+            {value.options.map((option, optionIndex) => {
+              const isCorrect = optionIndex === correctIndex
+              return (
+                <div
+                  key={optionIndex}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl border py-1.5 pr-1.5 pl-3.5 transition-[background-color,border-color] duration-150',
+                    isCorrect ? 'border-stage-correct/45 bg-stage-correct/[0.06]' : 'border-transparent bg-muted/60',
+                  )}
+                >
+                  <RadioGroupItem value={optionIndex.toString()} aria-label={`Option ${optionIndex + 1} is correct`} />
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'grid size-7 shrink-0 place-items-center rounded-md font-display text-sm font-bold',
+                      isCorrect ? 'bg-stage-correct text-white' : 'bg-card text-muted-foreground ring-1 ring-border',
+                    )}
+                  >
+                    {isCorrect ? <Check strokeWidth={3} className="size-4" /> : OPTION_LETTERS[optionIndex]}
+                  </span>
+                  <Input
+                    className="h-10 flex-1 border-transparent bg-card shadow-none dark:bg-white/[0.04]"
+                    name={`question-${index}-option-${optionIndex}`}
+                    autoComplete="off"
+                    placeholder={`Option ${optionIndex + 1}`}
+                    value={option.text}
+                    onChange={(e) => setOptionText(optionIndex, e.target.value)}
+                  />
+                  {value.options.length > QUESTION_OPTIONS_MIN && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => removeOption(optionIndex)}
+                      aria-label={`Remove option ${optionIndex + 1}`}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
+              )
+            })}
+          </RadioGroup>
+          {value.options.length < QUESTION_OPTIONS_MAX && (
+            <Button type="button" variant="ghost" size="sm" className="self-start text-muted-foreground" onClick={addOption}>
+              <Plus aria-hidden="true" /> Add option
+            </Button>
+          )}
+        </fieldset>
       </div>
-    </div>
+      {footer ? <div className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-3 sm:px-6">{footer}</div> : null}
+    </section>
   )
 }

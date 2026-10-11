@@ -81,11 +81,12 @@ Per DESIGN.md §7, the functional requirement is just "unreadable after
 
 One React app, role-driven by route rather than separate apps:
 
+- `/` — Home: the two ways in (create a quiz, enter a PIN) (Decision #68)
 - `/create`, `/quizzes/:id/edit` — Creator flows (authenticated)
 - `/host/:sessionId` — Controller view
 - `/display/:sessionId` — Display/cast view (read-only token, safe to
   project publicly)
-- `/join` → `/play/:sessionId` — Player/Spectator join + gameplay
+- `/join` (optionally `?code=`) → `/play/:sessionId` — Player/Spectator join + gameplay
 - `/results/:sessionId` — post-game results/podium page
 
 Single codebase keeps shared components (the color/shape answer grid,

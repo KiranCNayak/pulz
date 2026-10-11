@@ -159,7 +159,7 @@ describe('HostPage', () => {
     authenticate()
 
     expect(screen.getByText('Host Controller')).toBeInTheDocument()
-    expect(screen.getByText('LOBBY')).toBeInTheDocument()
+    expect(screen.getByText('Lobby', { exact: true })).toBeInTheDocument()
     expect(screen.getByText('players in the lobby').previousElementSibling).toHaveTextContent('2')
     fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
     expect(fakeSocket.emit).toHaveBeenCalledWith('game:start')
@@ -169,7 +169,7 @@ describe('HostPage', () => {
     authenticate()
     act(() => listeners.get('question:broadcast')?.(question))
 
-    expect(screen.getByText('IN_PROGRESS')).toBeInTheDocument()
+    expect(screen.getByText('Live', { exact: true })).toBeInTheDocument()
     expect(screen.getByText('Question 2 of 2')).toBeInTheDocument()
     expect(screen.getByText('What is 2 + 2?')).toBeInTheDocument()
     expect(screen.getByRole('timer')).toHaveAccessibleName('20 seconds left')
@@ -219,7 +219,7 @@ describe('HostPage', () => {
     authenticate()
     act(() => listeners.get('game:ended')?.({ resultsUrl: '/results/session-1' }))
 
-    expect(screen.getByText('ENDED')).toBeInTheDocument()
+    expect(screen.getByText('Ended', { exact: true })).toBeInTheDocument()
     expect(screen.getByText('Game ended.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View results' })).toHaveAttribute('href', '/results/session-1')
   })

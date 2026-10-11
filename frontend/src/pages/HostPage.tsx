@@ -21,10 +21,13 @@ import { AnswerGrid } from '@/components/AnswerGrid'
 import { toAnswerOptions } from '@/components/answerStyles'
 import { ConnectionErrorMessage } from '@/components/ConnectionErrorMessage'
 import { Countdown } from '@/components/Countdown'
+import { BrandMark } from '@/components/Logo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGameSocket } from '@/hooks/useGameSocket'
+import { formatNumber } from '@/lib/format'
 import { useTheme } from '@/hooks/useTheme'
 import { questionDeadline } from '@/lib/questionTimer'
 import { getSocket } from '@/lib/socket'
@@ -87,12 +90,6 @@ const LOCK_LABEL: Record<LockReason, string> = {
 
 const LEADERBOARD_LIMIT = 10
 
-/** Big, chunky "game button" treatment for the host's one primary action
- * per state — the brand violet reads in both themes, and the pressed-down
- * bottom edge echoes the answer tiles. */
-const PRIMARY_ACTION_CLASS =
-  'h-12 gap-2 rounded-xl bg-violet-600 px-6 text-base font-semibold text-white shadow-[0_4px_0_var(--color-violet-800)] hover:bg-violet-700 active:not-aria-[haspopup]:translate-y-0.5 active:shadow-[0_2px_0_var(--color-violet-800)] focus-visible:ring-violet-500/50'
-
 /** Answer-slot colors (see answerStyles.ts), reused for player avatars so
  * the lobby carries the game's palette. */
 const AVATAR_COLORS = ['bg-[#e21b3c]', 'bg-[#1368ce]', 'bg-[#b87a00]', 'bg-[#26890c]']
@@ -114,6 +111,7 @@ const AVATAR_COLORS = ['bg-[#e21b3c]', 'bg-[#1368ce]', 'bg-[#b87a00]', 'bg-[#268
  */
 export function HostPage() {
   useTheme()
+  useDocumentTitle('Host')
   const { sessionId } = useParams<{ sessionId: string }>()
   const [searchParams] = useSearchParams()
 
@@ -240,9 +238,9 @@ export function HostPage() {
     }
     return (
       <CenteredShell>
-        <Card className="w-full max-w-md gap-5 py-6 shadow-sm">
+        <Card className="w-full max-w-md gap-5 py-6">
           <CardHeader className="gap-2 px-6">
-            <div className="mb-1 grid size-10 place-items-center rounded-xl bg-violet-600/10 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300">
+            <div className="mb-1 grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
               <KeyRound aria-hidden="true" className="size-5" />
             </div>
             <CardTitle className="text-xl font-semibold tracking-tight">Connect as host</CardTitle>
@@ -271,12 +269,14 @@ export function HostPage() {
             >
               <Input
                 aria-label="Host token"
-                className="h-10 font-mono"
+                className="font-mono"
+                spellCheck={false}
+                autoComplete="off"
                 placeholder="Host token"
                 value={tokenDraft}
                 onChange={(e) => setTokenDraft(e.target.value)}
               />
-              <Button type="submit" className="h-10 px-4" disabled={!tokenDraft.trim()}>
+              <Button type="submit" className="h-11 px-5" disabled={!tokenDraft.trim()}>
                 Connect
               </Button>
             </form>
@@ -289,7 +289,7 @@ export function HostPage() {
   if (connectionError) {
     return (
       <CenteredShell>
-        <Card className="w-full max-w-md items-center gap-2 py-6 text-center shadow-sm">
+        <Card className="w-full max-w-md items-center gap-2 py-6 text-center">
           <div className="grid size-10 place-items-center rounded-xl bg-destructive/10 text-destructive">
             <WifiOff aria-hidden="true" className="size-5" />
           </div>
@@ -322,7 +322,7 @@ export function HostPage() {
     ) : null
 
   return (
-    <div className="min-h-dvh bg-muted/40 text-foreground dark:bg-background">
+    <div className="min-h-dvh bg-background text-foreground">
       <HostHeader status={snapshot.status} joinCode={snapshot.joinCode} />
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
@@ -358,7 +358,7 @@ export function HostPage() {
                 onNext={() => socket.emit('host:next_question')}
               />
             ) : (
-              <Card className="py-10 text-center shadow-sm">
+              <Card className="py-10 text-center">
                 <CardContent className="text-muted-foreground">Waiting for the next question…</CardContent>
               </Card>
             )}
@@ -376,16 +376,16 @@ export function HostPage() {
               leaderboard && leaderboard.length > 0 && 'lg:grid-cols-[minmax(0,1fr)_22rem]',
             )}
           >
-            <Card className="items-center gap-4 px-6 py-12 text-center shadow-sm">
+            <Card className="items-center gap-4 px-6 py-12 text-center">
               <div className="grid size-16 place-items-center rounded-2xl bg-amber-400/20 text-amber-600 dark:text-amber-300">
                 <Flag aria-hidden="true" className="size-8" />
               </div>
               <div className="space-y-1.5">
-                <p className="text-3xl font-bold tracking-tight">Game ended.</p>
-                <p className="text-muted-foreground">Thanks for hosting — the final standings are ready.</p>
+                <p className="font-display text-3xl font-extrabold tracking-tight">Game ended.</p>
+                <p className="text-muted-foreground">Thanks for hosting. The final standings are ready.</p>
               </div>
               {resultsUrl && (
-                <Button className={cn(PRIMARY_ACTION_CLASS, 'mt-2')} render={<Link to={resultsUrl} />}>
+                <Button size="lg" className="mt-2" render={<Link to={resultsUrl} />}>
                   <Trophy aria-hidden="true" className="size-5" /> View results
                 </Button>
               )}
@@ -406,32 +406,25 @@ export function HostPage() {
 
 function CenteredShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid min-h-dvh place-items-center bg-muted/40 px-4 py-10 text-foreground dark:bg-background">
+    <div className="grid min-h-dvh place-items-center bg-background bg-dot-grid-ink px-4 py-10 text-foreground dark:bg-dot-grid">
       {children}
     </div>
   )
 }
 
-function BrandMark() {
-  return (
-    <div aria-hidden="true" className="grid size-9 shrink-0 grid-cols-2 gap-0.5 rounded-lg p-1 ring-1 ring-border">
-      {AVATAR_COLORS.map((color) => (
-        <span key={color} className={cn('rounded-[3px]', color)} />
-      ))}
-    </div>
-  )
-}
-
-const STATUS_STYLES: Record<SessionStatus, { badge: string; dot: string }> = {
+const STATUS_STYLES: Record<SessionStatus, { label: string; badge: string; dot: string }> = {
   LOBBY: {
+    label: 'Lobby',
     badge: 'bg-amber-500/15 text-amber-800 ring-amber-500/30 dark:text-amber-300',
     dot: 'bg-amber-500',
   },
   IN_PROGRESS: {
+    label: 'Live',
     badge: 'bg-emerald-500/15 text-emerald-800 ring-emerald-500/30 dark:text-emerald-300',
     dot: 'bg-emerald-500 motion-safe:animate-pulse',
   },
   ENDED: {
+    label: 'Ended',
     badge: 'bg-muted text-muted-foreground ring-border',
     dot: 'bg-muted-foreground/60',
   },
@@ -442,12 +435,12 @@ function StatusBadge({ status }: { status: SessionStatus }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wider ring-1 ring-inset',
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset',
         styles.badge,
       )}
     >
       <span aria-hidden="true" className={cn('size-1.5 rounded-full', styles.dot)} />
-      {status}
+      {styles.label}
     </span>
   )
 }
@@ -468,7 +461,7 @@ function HostHeader({ status, joinCode }: { status: SessionStatus; joinCode: str
           <BrandMark />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg font-semibold tracking-tight">Host Controller</h1>
+              <h1 className="font-display text-lg font-bold tracking-tight">Host Controller</h1>
               <StatusBadge status={status} />
             </div>
             <p className="text-sm text-muted-foreground">
@@ -481,7 +474,7 @@ function HostHeader({ status, joinCode }: { status: SessionStatus; joinCode: str
         <div className="flex items-center gap-3 rounded-xl border bg-background py-2 pr-2 pl-4 dark:bg-muted/40">
           <div>
             <p className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Join code</p>
-            <p className="font-mono text-3xl leading-tight font-bold tracking-[0.18em]">{joinCode}</p>
+            <p translate="no" className="font-mono text-3xl leading-tight font-bold tracking-[0.18em]">{joinCode}</p>
           </div>
           <Button
             type="button"
@@ -491,7 +484,7 @@ function HostHeader({ status, joinCode }: { status: SessionStatus; joinCode: str
             onClick={copyJoinCode}
             aria-label={copied ? 'Join code copied' : 'Copy join code'}
           >
-            {copied ? <Check className="text-emerald-600 dark:text-emerald-400" /> : <Copy />}
+            {copied ? <Check aria-hidden="true" className="text-stage-correct dark:text-emerald-400" /> : <Copy aria-hidden="true" />}
           </Button>
         </div>
       </div>
@@ -502,20 +495,20 @@ function HostHeader({ status, joinCode }: { status: SessionStatus; joinCode: str
 function LobbyCard({ participants, onStart }: { participants: LobbyParticipant[]; onStart: () => void }) {
   const count = participants.length
   return (
-    <Card className="gap-0 py-0 shadow-sm">
+    <Card className="gap-0 py-0">
       <div className="flex flex-wrap items-center justify-between gap-6 px-6 py-6 sm:px-8">
         <div className="flex items-center gap-5">
-          <div className="grid size-14 place-items-center rounded-2xl bg-violet-600/10 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300">
+          <div className="grid size-14 place-items-center rounded-2xl bg-muted text-foreground">
             <Users aria-hidden="true" className="size-7" />
           </div>
           <div>
-            <p className="text-5xl leading-none font-bold tracking-tight tabular-nums">{count}</p>
+            <p className="font-display text-5xl leading-none font-extrabold tracking-tight tabular-nums">{count}</p>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {count === 1 ? 'player' : 'players'} in the lobby
             </p>
           </div>
         </div>
-        <Button type="button" className={cn(PRIMARY_ACTION_CLASS, 'h-14 w-full px-8 text-lg sm:w-auto')} onClick={onStart}>
+        <Button type="button" size="xl" className="w-full sm:w-auto" onClick={onStart}>
           <Play aria-hidden="true" className="size-5 fill-current" />
           Start game
         </Button>
@@ -526,7 +519,7 @@ function LobbyCard({ participants, onStart }: { participants: LobbyParticipant[]
           <div className="flex h-full min-h-44 flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-6 py-10 text-center">
             <Hourglass aria-hidden="true" className="size-6 text-muted-foreground motion-safe:animate-pulse" />
             <p className="font-medium">Waiting for players to join…</p>
-            <p className="text-sm text-muted-foreground">Share the join code above — names pop in here live.</p>
+            <p className="text-sm text-muted-foreground">Share the join code above. Names pop in here as players join.</p>
           </div>
         ) : (
           <ul className="flex flex-wrap gap-2.5">
@@ -576,33 +569,35 @@ function QuestionPanel({
   const totalAnswers = reveal ? Object.values(reveal.tally).reduce((sum, n) => sum + n, 0) : null
 
   return (
-    <Card className="gap-0 py-0 shadow-sm">
+    <Card className="gap-0 py-0">
       <div className="flex items-start justify-between gap-6 px-6 pt-6 sm:px-8">
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex items-center gap-3">
-            <p className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+            <p className="text-sm font-semibold whitespace-nowrap text-muted-foreground">
               Question {question.index + 1} of {question.total}
             </p>
-            <div aria-hidden="true" className="flex gap-1">
+            {/* Segments shrink to fit and drop out on phones, where they ran
+                under the countdown ring. */}
+            <div aria-hidden="true" className="hidden min-w-0 flex-1 gap-1 sm:flex">
               {Array.from({ length: question.total }, (_, i) => (
                 <span
                   key={i}
                   className={cn(
-                    'h-1.5 w-6 rounded-full',
-                    i <= question.index ? 'bg-violet-600 dark:bg-violet-400' : 'bg-muted-foreground/20',
+                    'h-1.5 max-w-6 min-w-1 flex-1 rounded-full',
+                    i <= question.index ? 'bg-foreground dark:bg-signal' : 'bg-muted-foreground/20',
                   )}
                 />
               ))}
             </div>
           </div>
-          <h2 className="text-2xl leading-tight font-bold tracking-tight text-pretty [overflow-wrap:anywhere] sm:text-3xl">
+          <h2 className="font-display text-2xl leading-tight font-bold tracking-tight text-pretty [overflow-wrap:anywhere] sm:text-3xl">
             {question.text}
           </h2>
         </div>
         {deadline !== null && (
           // Color via the wrapper (Countdown inherits currentColor) so the
           // component's own final-seconds red state isn't overridden.
-          <div className={locked ? 'text-muted-foreground' : 'text-violet-600 dark:text-violet-300'}>
+          <div className={locked ? 'text-muted-foreground' : 'text-foreground'}>
             <Countdown
               deadline={deadline}
               durationSeconds={question.timeLimitSeconds}
@@ -639,13 +634,13 @@ function QuestionPanel({
           isLast={isLast}
         />
         {phase === 'ACTIVE' && (
-          <Button type="button" className={cn(PRIMARY_ACTION_CLASS, 'w-full sm:w-auto')} onClick={onLock}>
+          <Button type="button" size="lg" className="w-full sm:w-auto" onClick={onLock}>
             <Lock aria-hidden="true" className="size-5" />
             Lock question
           </Button>
         )}
         {phase === 'LOCKED' && (
-          <Button type="button" className={cn(PRIMARY_ACTION_CLASS, 'w-full sm:w-auto')} onClick={onNext}>
+          <Button type="button" size="lg" className="w-full sm:w-auto" onClick={onNext}>
             Next
             <ArrowRight aria-hidden="true" className="size-5" />
           </Button>
@@ -678,8 +673,7 @@ function PhaseStatus({
         <span>
           <span className="font-medium">Answers open</span>
           <span className="text-muted-foreground">
-            {' '}
-            — lock early, or it locks itself once everyone has answered or time runs out.
+            . Lock early, or it locks itself once everyone has answered or time runs out.
           </span>
         </span>
       </div>
@@ -694,7 +688,7 @@ function PhaseStatus({
           {revealed ? ` · ${totalAnswers} ${totalAnswers === 1 ? 'answer' : 'answers'}` : ''}
         </span>
         <span className="text-muted-foreground">
-          {isLast ? ' — Next ends the game.' : ' — Next shows the following question.'}
+          {isLast ? '. Next ends the game.' : '. Next shows the following question.'}
         </span>
       </span>
     </div>
@@ -703,16 +697,16 @@ function PhaseStatus({
 
 const RUN_OF_SHOW = [
   { action: 'Kick off', detail: 'The first question goes live on every screen.' },
-  { action: 'Lock it in', detail: 'Lock early or let the timer run out — answers and scores are revealed.' },
+  { action: 'Lock it in', detail: 'Lock early or let the timer run out. Answers and scores are revealed.' },
   { action: 'Move on', detail: 'Advance to the next question; after the last one, the game ends.' },
 ]
 
 function RunOfShowCard({ questionCount }: { questionCount: number }) {
   return (
-    <Card className="gap-0 py-0 shadow-sm">
+    <Card className="gap-0 py-0">
       <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
         <div className="flex items-center gap-2">
-          <ListOrdered aria-hidden="true" className="size-4 text-violet-600 dark:text-violet-300" />
+          <ListOrdered aria-hidden="true" className="size-4 text-muted-foreground" />
           <h2 className="font-semibold">Run of show</h2>
         </div>
         <span className="text-xs text-muted-foreground">
@@ -740,9 +734,9 @@ function RunOfShowCard({ questionCount }: { questionCount: number }) {
 }
 
 const RANK_STYLES: Record<number, string> = {
-  1: 'bg-amber-400 text-amber-950',
-  2: 'bg-slate-300 text-slate-900',
-  3: 'bg-orange-400 text-orange-950',
+  1: 'bg-medal-gold text-[#0e1118]',
+  2: 'bg-medal-silver text-[#0e1118]',
+  3: 'bg-medal-bronze text-[#0e1118]',
 }
 
 function LeaderboardCard({
@@ -758,10 +752,10 @@ function LeaderboardCard({
   const hidden = (entries?.length ?? 0) - shown.length
 
   return (
-    <Card className="gap-0 py-0 shadow-sm">
+    <Card className="gap-0 py-0">
       <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
         <div className="flex items-center gap-2">
-          <Trophy aria-hidden="true" className="size-4 text-amber-500" />
+          <Trophy aria-hidden="true" className="size-4 text-[#b8901f] dark:text-medal-gold" />
           <h2 className="font-semibold">{final ? 'Final standings' : 'Leaderboard'}</h2>
         </div>
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -786,7 +780,7 @@ function LeaderboardCard({
           {shown.map((entry) => (
             <li
               key={entry.participantId}
-              className={cn('flex items-center gap-3 px-5 py-2.5', entry.rank === 1 && 'bg-amber-400/10')}
+              className={cn('flex items-center gap-3 px-5 py-2.5', entry.rank === 1 && 'bg-medal-gold/10')}
             >
               <span
                 className={cn(
@@ -798,7 +792,7 @@ function LeaderboardCard({
               </span>
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{entry.displayName}</span>
               <span className="text-sm font-semibold tabular-nums">
-                {entry.score.toLocaleString()}
+                {formatNumber(entry.score)}
                 <span className="ml-1 text-xs font-normal text-muted-foreground">pts</span>
               </span>
             </li>
@@ -820,13 +814,13 @@ function PromotionRequestsCard({
   onDecide: (participantId: string, approve: boolean) => void
 }) {
   return (
-    <Card className="gap-0 py-0 shadow-sm ring-violet-500/40">
+    <Card className="gap-0 py-0 border-primary-edge/40">
       <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
         <div className="flex items-center gap-2">
-          <UserPlus aria-hidden="true" className="size-4 text-violet-600 dark:text-violet-300" />
+          <UserPlus aria-hidden="true" className="size-4 text-muted-foreground" />
           <h2 className="font-semibold">Spectator promotion requests</h2>
         </div>
-        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-violet-600 px-1.5 text-xs font-bold text-white tabular-nums">
+        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground tabular-nums">
           {requests.length}
         </span>
       </div>

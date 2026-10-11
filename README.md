@@ -12,6 +12,8 @@ See:
   surface
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — tech stack and infra
   choices, with reasoning
+- [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) — the visual system:
+  palette, typography, components, motion
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — quick-reference log of
   settled decisions
 - [`docs/GO_V2_EXPLORATION.md`](docs/GO_V2_EXPLORATION.md) — scope of the
@@ -28,8 +30,8 @@ See:
 - [`backend-go/`](backend-go/) — **not** the MVP backend. A separate,
   low-priority Go performance-exploration module; see
   `docs/GO_V2_EXPLORATION.md`.
-- [`frontend/`](frontend/) — React + Vite SPA. All seven routes (Creator
-  flows, Host, Display, Join/Play, Results) are implemented, including the
+- [`frontend/`](frontend/) — React + Vite SPA. All eight routes (Home,
+  Creator flows, Host, Display, Join/Play, Results) are implemented, including the
   Creator→session hand-off. Manually verified end-to-end against a live
   backend and covered by three Playwright E2E tests. See
   `docs/FRONTEND_PLAN.md`.
@@ -63,13 +65,20 @@ again.
 
 ## Screenshots
 
+The visual system (palette, type, components, motion) is documented in
+[`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md).
+
+| Home | Home (dark mode) |
+| --- | --- |
+| ![Home page with a live preview of the Display](docs/screenshots/home.jpg) | ![Home page in dark mode](docs/screenshots/home-dark.jpg) |
+
 | Create | Create (dark mode) |
 | --- | --- |
 | ![Create a quiz](docs/screenshots/create.jpg) | ![Create a quiz in dark mode](docs/screenshots/create-dark.jpg) |
 
 | Edit + start session |
 | --- |
-| ![Edit quiz with a live session](docs/screenshots/edit.jpg) |
+| ![Edit quiz with a live session and its join code](docs/screenshots/edit.jpg) |
 
 | Join | Host controller |
 | --- | --- |

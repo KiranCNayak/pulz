@@ -13,8 +13,10 @@ live scoring, leaderboard rank, and a podium finish.
 
 **The MVP is feature-complete and verified end-to-end.** Don't assume this
 summary stays accurate as work continues — verify with `ls`/`git log`, and
-see `docs/DECISIONS.md` (the log runs to #67) for the why behind each piece.
+see `docs/DECISIONS.md` (the log runs to #68) for the why behind each piece.
 
+- **Home** (`/`) and a documented visual system (`docs/DESIGN_SYSTEM.md`,
+  Decision #68): ink stage, one lime accent, Outfit/Geist type.
 - **Creator flow** (`/create`, `/quizzes/:id/edit`): capability-bearer-token
   identity (Decision #38 — no password/email/OAuth, no account recovery by
   design), quiz CRUD, and "Start session" with a results-retention choice
@@ -53,7 +55,8 @@ real backend. See `docs/GO_V2_EXPLORATION.md` and Decision #31.
    scoring pseudocode.
 3. **`docs/ARCHITECTURE.md`** — tech stack and infra choices (Node.js +
    TypeScript, Fastify, Socket.IO, Postgres, hosting), each with the
-   reasoning behind it.
+   reasoning behind it. For any UI work, also read
+   **`docs/DESIGN_SYSTEM.md`** (palette, type, components, motion, bans).
 4. **`docs/DECISIONS.md`** — a flat, quick-reference log of settled
    decisions with pointers to where each is detailed. **Check this before
    proposing to change something** — most "obvious alternatives" (e.g.

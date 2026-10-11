@@ -46,7 +46,8 @@ No open frontend stack decisions remain at this point.
 
 ## Local dev environment
 
-`docker compose up --build` from the repo root (Decision #50) brings up
+`make up` from the repo root (Decision #69; README "Run it locally" lists
+every target) wraps `docker compose up --build` (Decision #50), which brings up
 Postgres, the backend (migrations run automatically, then `tsx watch`),
 and the frontend (`vite --host 0.0.0.0`) each in their own container, with
 the repo bind-mounted for live reload. Frontend: `http://localhost:5173`.
@@ -55,7 +56,7 @@ deployment manifest (see the comment at the top of `docker-compose.yml`).
 
 Visual design lives in `docs/DESIGN_SYSTEM.md` (Decision #68).
 
-With the stack running, `cd frontend && npm run test:e2e` runs the
+With the stack running, `make e2e` (or `cd frontend && npm run test:e2e`) runs the
 Playwright E2E suite (Decision #52) against it.
 
 ## Work breakdown

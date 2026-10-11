@@ -13,7 +13,7 @@ live scoring, leaderboard rank, and a podium finish.
 
 **The MVP is feature-complete and verified end-to-end.** Don't assume this
 summary stays accurate as work continues — verify with `ls`/`git log`, and
-see `docs/DECISIONS.md` (the log runs to #68) for the why behind each piece.
+see `docs/DECISIONS.md` (the log runs to #69) for the why behind each piece.
 
 - **Home** (`/`) and a documented visual system (`docs/DESIGN_SYSTEM.md`,
   Decision #68): ink stage, one lime accent, Outfit/Geist type.
@@ -38,8 +38,9 @@ see `docs/DECISIONS.md` (the log runs to #68) for the why behind each piece.
   edge layer is deployment infra, not yet provisioned.
 - **Tests**: backend Vitest (unit + real-Socket.IO integration), frontend
   Vitest, and a Playwright E2E suite run against `docker compose up`
-  (stable since Decision #59). `cd backend && npm run demo` seeds a
-  playable 8-question game for manual checks.
+  (stable since Decision #59). `make up` starts the whole stack and
+  `make demo` seeds a playable 8-question game for manual checks
+  (Decision #69; `make` lists every target).
 
 There is also a **`backend-go/`** directory — this is a separate,
 non-shipping performance-exploration module (Go), not an alternative or

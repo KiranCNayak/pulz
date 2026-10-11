@@ -19,7 +19,7 @@ See:
 - [`docs/GO_V2_EXPLORATION.md`](docs/GO_V2_EXPLORATION.md) — scope of the
   `backend-go/` performance exploration (not the MVP backend)
 - [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) — frontend plan,
-  settled decisions, progress checklist, and how to run the stack locally.
+  settled decisions and progress checklist.
 
 ## Layout
 
@@ -40,28 +40,107 @@ See:
 tests); frontend's full user journey (create → start session →
 host/display/play → results) is implemented, manually verified
 end-to-end, and covered by an automated Playwright E2E suite, which is stable
-(Decision #59 fixed the earlier flakiness). See `docs/FRONTEND_PLAN.md`
-for the plan/progress and how to run the stack locally, and `CLAUDE.md`
-for the full up-to-date picture.
+(Decision #59 fixed the earlier flakiness). See [Run it locally](#run-it-locally)
+below to start it, `docs/FRONTEND_PLAN.md` for the frontend plan, and
+`CLAUDE.md` for the full up-to-date picture.
 
-## Local development
+## Run it locally
 
-`docker compose up --build` from the repo root starts Postgres, the
-backend, and the frontend together. With that running,
-`cd frontend && npm run test:e2e` runs the E2E suite — see
-`docs/FRONTEND_PLAN.md` for details. (The dev stack raises
-`POST /auth/register`'s 10/hour-per-IP production limit so the suite can
-be re-run freely — Decision #60.)
+### Prerequisites
+
+- **Docker Desktop** (or Docker Engine with the Compose plugin)
+- **Node.js 20+** and npm (only needed for `make dev`, the demo seeder and the tests)
+- **make** (preinstalled on macOS and most Linux distributions)
+
+### Quick start (one command)
+
+```bash
+make up
+```
+
+This builds and starts Postgres, the backend and the frontend in Docker,
+applies database migrations, and waits until both servers answer. Then open:
+
+- App: <http://localhost:5173>
+- Backend API: <http://localhost:3000> (health check at `/health`)
+
+Code changes hot-reload; the repo is mounted into the containers. Stop with
+`make down` (keeps the database) or `make clean` (also deletes it).
 
 ### Try a game with dummy questions
 
-With the stack up, `cd backend && npm run demo` creates an 8-question
-general-knowledge quiz, starts a live session, and prints the join code
-plus the Host and Display links. Open the Host link in one window, the
-Display link in another, and join as players at `http://localhost:5173/join`
-— one player per browser or profile (tabs in one browser share storage).
-Sessions live in backend memory, so after a backend restart just run it
-again.
+With the stack running:
+
+```bash
+make demo
+```
+
+It creates an 8-question quiz, starts a live session, and prints the join
+code plus the Host and Display links. Open the Host link in one window and
+the Display link in another, then join as players at
+<http://localhost:5173/join>, one player per browser or browser profile (tabs
+in one browser share storage). Sessions live in the backend's memory, so after
+a backend restart just run `make demo` again.
+
+### All make targets
+
+| Command | What it does |
+| --- | --- |
+| `make up` | Start everything in Docker and wait until it's ready |
+| `make down` | Stop the Docker stack (keeps the database) |
+| `make restart` | `down` then `up` |
+| `make logs` | Follow logs from all containers |
+| `make ps` | Show container status |
+| `make dev` | Run backend + frontend as local Node processes (Postgres stays in Docker); Ctrl-C stops both |
+| `make install` | `npm install` in `backend/` and `frontend/` |
+| `make demo` | Seed a playable quiz and print the links |
+| `make test` | Backend + frontend unit tests |
+| `make typecheck` | Typecheck backend and frontend |
+| `make e2e` | Playwright end-to-end suite against the running stack |
+| `make clean` | Stop the stack and delete the database volume |
+
+`make` on its own prints this list.
+
+### Native mode (`make dev`)
+
+`make dev` runs the backend (`tsx watch`) and frontend (Vite) directly on your
+machine, with only Postgres in Docker. It starts faster and gives quicker
+reloads than the all-Docker stack. It installs dependencies on first run,
+applies migrations, and interleaves both log streams with `[backend]` /
+`[frontend]` prefixes. Without a `backend/.env` it uses the same dev settings
+as `docker-compose.yml`; copy `backend/.env.example` to `backend/.env` to
+customise them.
+
+`make up` and `make dev` both use ports 3000 and 5173, so run one at a time:
+`make down` before `make dev`.
+
+### Without make
+
+```bash
+docker compose up --build          # full stack in Docker; Ctrl-C to stop
+cd backend && npm run demo         # in a second terminal: seed a game
+```
+
+### Tests
+
+```bash
+make test        # unit tests (backend Vitest + frontend Vitest)
+make e2e         # Playwright E2E; needs `make up` running first
+```
+
+The E2E suite runs against the Docker stack. The dev stack raises
+`POST /auth/register`'s 10/hour-per-IP production limit so the suite can be
+re-run freely (Decision #60). See `docs/FRONTEND_PLAN.md` for more.
+
+### Troubleshooting
+
+- **"Port … is already in use"**: another copy of the stack is running.
+  `make down` stops the Docker one; for a local Postgres on 5432, stop it or
+  change the port mapping in `docker-compose.yml`.
+- **Backend never becomes ready**: `make logs` shows why. A stale database
+  from an older schema can be reset with `make clean && make up`.
+- **E2E tests fail to install browsers**: run
+  `cd frontend && npx playwright install chromium` once.
 
 ## Screenshots
 

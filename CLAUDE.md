@@ -13,7 +13,7 @@ live scoring, leaderboard rank, and a podium finish.
 
 **The MVP is feature-complete and verified end-to-end.** Don't assume this
 summary stays accurate as work continues — verify with `ls`/`git log`, and
-see `docs/DECISIONS.md` (the log runs to #66) for the why behind each piece.
+see `docs/DECISIONS.md` (the log runs to #67) for the why behind each piece.
 
 - **Creator flow** (`/create`, `/quizzes/:id/edit`): capability-bearer-token
   identity (Decision #38 — no password/email/OAuth, no account recovery by
@@ -23,7 +23,9 @@ see `docs/DECISIONS.md` (the log runs to #66) for the why behind each piece.
   player phones that mirror the Display's shape layout (Decision #62). Join
   by code; late joiners spectate and can request to play; questions close
   when the host locks, the timer runs out, or every connected player has
-  answered (Decision #63); scoring is server-authoritative (DESIGN.md §5).
+  answered (Decision #63); scoring is server-authoritative and
+  time-proportional, so faster correct answers always score more
+  (DESIGN.md §5, Decision #67).
 - **Reconnect everywhere**: players (page refresh or network drop,
   Decisions #53/#58) and Host/Display (Decision #64) resume mid-game.
 - **Results**: podium + paginated ranks at `/results/:sessionId`, from a

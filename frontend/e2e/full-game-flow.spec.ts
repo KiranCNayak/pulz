@@ -52,7 +52,7 @@ test('full game flow: create, host, play, and view results', async ({ browser })
   await expect(displayPage.getByText('Everyone answered!')).toBeVisible()
 
   // Server-authoritative scoring feedback on the player's own screen.
-  // Points earned depend on the time-bracket scoring model (PRD §5) —
+  // Points earned depend on answer time (PRD §5, 1000 down to 500) —
   // assert the shape, not an exact value, since answer latency varies.
   await expect(playerPage.getByText('Correct!')).toBeVisible()
   const pointsText = await playerPage.getByText(/^\+\d+ points$/).textContent()

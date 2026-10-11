@@ -94,32 +94,43 @@ to an MVP that is cheap to run and simple to operate.
 
 ## 5. Scoring Model
 
-Server-authoritative, time-bracket based (not rank-based). Points are always
-non-negative integers and a multiple of the question's base value.
+Server-authoritative and time-proportional (not rank-based). Points are
+always non-negative integers. A correct answer scores 1000 if it reaches the
+server the instant the question is broadcast, falling linearly to 500 at the
+time limit (Decision #67):
 
 ```
-base = 10
-bracket = which 20%-slice of the question's time limit the answer landed in
-points = correct ? base * multiplier(bracket) : 0
+pctUsed = serverReceivedTime - questionBroadcastTime, as a fraction of the time limit
+points  = correct ? round(1000 - 500 * pctUsed) : 0
 ```
 
-| Answered within (% of time limit) | Multiplier | Points (base 10) |
-|---|---|---|
-| ≤ 20% | 5x | 50 |
-| ≤ 40% | 4x | 40 |
-| ≤ 60% | 3x | 30 |
-| ≤ 80% | 2x | 20 |
-| ≤ 100% | 1x | 10 |
-| Wrong / no answer | — | 0 |
+Worked example, 20s question:
 
-**Why time-bracket, not rank-based:** rank-based scoring (fastest correct
-answer wins the most, decreasing per finishing position) requires the server
-to establish a strict global ordering of near-simultaneous answers across
-players with varying network latency — a race-condition-prone problem to
-get fair. Time-bracket scoring only needs each player's own elapsed time,
-computed independently of everyone else, so there's no cross-player
-adjudication needed. Multiple players can land in the same bracket and get
-identical points.
+| Correct answer received at | Points |
+|---|---|
+| 0.3s | 993 |
+| 0.5s | 988 |
+| 1.2s | 970 |
+| 10s (half the time) | 750 |
+| 20s (time limit) | 500 |
+| Wrong / no answer | 0 |
+
+**Faster always scores more.** Two players who both answer quickly and
+correctly get different points: whoever the server received first scores
+higher. One point is ~40ms on a 20s question (~240ms on 120s), so only
+answers practically simultaneous at the server tie. This replaced the
+original five 20%-of-time brackets (50/40/30/20/10), under which everyone
+answering in the first fifth of the timer got the same 50 — on an easy quiz
+the whole room tied at the top despite some players being clearly faster.
+
+**Why time-proportional, not rank-based:** rank-based scoring (fastest
+correct answer wins the most, decreasing per finishing position) requires
+the server to establish a strict global ordering of near-simultaneous
+answers across players — a race-condition-prone problem to get fair.
+Time-proportional scoring only needs each player's own elapsed time,
+computed independently of everyone else, yet still orders players by speed:
+the server's receipt time is the one clock everyone is measured against.
+Network latency still counts as part of a player's time, as it always has.
 
 **Validation rules (server-enforced, never trust client):**
 - `timeTaken` clamped to `0 ≤ timeTaken ≤ timeLimit`; out-of-range submissions
@@ -184,8 +195,9 @@ over-punishes. Requirements, mechanism detailed in `ARCHITECTURE.md` §11:
 
 - Bulk "allow all pending spectators" toggle for host (currently: per-request
   approval only).
-- Exact bracket thresholds are configuration constants, not hardcoded —
-  can be rebalanced post-launch without a schema change.
+- The 1000/500 scoring range is a pair of configuration constants
+  (`SCORE_MAX_POINTS` / `SCORE_MIN_POINTS`), not hardcoded — can be
+  rebalanced post-launch without a schema change.
 - Results dashboard access model: currently accessible via the session's
   unguessable link; no additional auth layer in MVP.
 

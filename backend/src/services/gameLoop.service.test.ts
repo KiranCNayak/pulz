@@ -1,5 +1,5 @@
 import type { Server } from "socket.io";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // writeResultsSnapshot hits Prisma/Postgres — mocked so this whole suite
 // stays DB-free (game-loop state itself is pure in-memory per Decision
@@ -77,6 +77,12 @@ beforeEach(() => {
   writeResultsSnapshotMock.mockClear();
 });
 
+// Tests that assert exact points freeze the clock (scoring is per-ms,
+// Decision #67); restore it so nothing leaks into the next test.
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("startGame", () => {
   it("moves LOBBY -> IN_PROGRESS and broadcasts the first question", () => {
     const session = makeSession([makeQuestion("q1", "q1-a")]);
@@ -151,17 +157,36 @@ describe("submitAnswer", () => {
     });
   });
 
-  it("scores a correct, fast answer at the top bracket (PRD §5)", () => {
+  it("scores a correct answer by the server's receipt time (PRD §5)", () => {
+    vi.useFakeTimers();
     const session = startedSession();
     const player = createParticipant(session, "Alex", "PLAYER");
-    session.current!.broadcastAt = Date.now(); // answered ~immediately
+    session.current!.broadcastAt = Date.now();
+    vi.advanceTimersByTime(1_200);
 
     expect(submitAnswer(session, player, "q1", "q1-a")).toEqual({ ok: true });
 
     const record = player.answers.get("q1")!;
     expect(record.isCorrect).toBe(true);
-    expect(record.points).toBe(50); // <=20% of time limit -> 5x base(10)
-    expect(player.score).toBe(50);
+    expect(record.timeTakenMs).toBe(1_200);
+    expect(record.points).toBe(970); // 1000 - 500 * (1.2s / 20s)
+    expect(player.score).toBe(970);
+  });
+
+  it("gives the faster of two quick correct answers more points", () => {
+    vi.useFakeTimers();
+    const session = startedSession();
+    const first = createParticipant(session, "Alex", "PLAYER");
+    const second = createParticipant(session, "Sam", "PLAYER");
+    session.current!.broadcastAt = Date.now();
+
+    vi.advanceTimersByTime(300);
+    submitAnswer(session, first, "q1", "q1-a");
+    vi.advanceTimersByTime(200);
+    submitAnswer(session, second, "q1", "q1-a");
+
+    expect(first.score).toBe(993);
+    expect(second.score).toBe(988);
   });
 
   it("scores a wrong answer as 0 points", () => {
@@ -182,6 +207,7 @@ describe("lockQuestion", () => {
   });
 
   it("tallies answers, reveals the correct option, and reports each player's own result", () => {
+    vi.useFakeTimers(); // answers land at 0ms -> full points
     const session = makeSession([makeQuestion("q1", "q1-a")]);
     const { io, emitted } = createFakeIo();
     startGame(io, session);
@@ -207,7 +233,7 @@ describe("lockQuestion", () => {
 
     const alexResult = emitted.find((e) => e.event === "answer:result" && e.rooms.includes("socket-alex"))!
       .payload as { isCorrect: boolean; pointsEarned: number; myRank: number; totalPlayers: number };
-    expect(alexResult).toEqual({ isCorrect: true, pointsEarned: 50, myRank: 1, totalPlayers: 2 });
+    expect(alexResult).toEqual({ isCorrect: true, pointsEarned: 1000, myRank: 1, totalPlayers: 2 });
 
     const samResult = emitted.find((e) => e.event === "answer:result" && e.rooms.includes("socket-sam"))!
       .payload as { isCorrect: boolean; pointsEarned: number; myRank: number; totalPlayers: number };
@@ -400,6 +426,7 @@ describe("buildResumeSnapshot", () => {
   });
 
   it("rehydrates the reveal and this player's own result once locked", () => {
+    vi.useFakeTimers(); // answers land at 0ms -> full points
     const session = makeSession([makeQuestion("q1", "q1-a")]);
     const { io } = createFakeIo();
     startGame(io, session);
@@ -416,7 +443,7 @@ describe("buildResumeSnapshot", () => {
 
     expect(snapshot.question?.phase).toBe("LOCKED");
     expect(snapshot.reveal?.correctOptionId).toBe("q1-a");
-    expect(snapshot.result).toMatchObject({ isCorrect: true, pointsEarned: 50 });
+    expect(snapshot.result).toMatchObject({ isCorrect: true, pointsEarned: 1000 });
   });
 
   it("gives a spectator the reveal but no player result", () => {

@@ -49,7 +49,7 @@ Answer
   serverReceivedAt               // server clock, not client-reported
   timeTakenMs                    // derived: serverReceivedAt - questionBroadcastAt
   isCorrect
-  points (non-negative integer, multiple of question's base, see PRD §5)
+  points (non-negative integer; 0, or 500-1000 for a correct answer, see PRD §5)
 
 ResultsSnapshot
   sessionId, generatedAt, expiresAt, payload (podium + paginated ranks)
@@ -58,8 +58,7 @@ ResultsSnapshot
 **Invariants enforced at the data layer, not just app code:**
 - `Option.isCorrect`: exactly one `true` per question (app-level check on
   write; consider a partial unique index if the DB supports it).
-- `Answer.points >= 0` and `Answer.points % question.basePoints == 0` — DB
-  `CHECK` constraint.
+- `Answer.points` is `0` or in `[500, 1000]`, integer — never float.
 - `Answer.timeTakenMs` between `0` and `question.timeLimitSeconds * 1000`
   — reject/clamp on write.
 - `Participant.score >= 0`, integer type — never float.
@@ -195,8 +194,7 @@ on answer:submit(participantId, questionId, selectedOptionId, clientTimestamp):
         points = 0
     else:
         pctUsed = timeTakenMs / question.timeLimitMs
-        multiplier = bracket(pctUsed)   // 5/4/3/2/1 per PRD §5 table
-        points = question.basePoints * multiplier   // always integer, >=0
+        points = round(1000 - 500 * pctUsed)   // PRD §5; integer, 500..1000
 
     persist Answer{..., timeTakenMs, isCorrect, points}
     participant.score += points

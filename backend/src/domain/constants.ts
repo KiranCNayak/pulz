@@ -10,8 +10,6 @@ export const QUESTION_TIME_LIMIT_DEFAULT_SECONDS = 20;
 export const QUESTION_OPTIONS_MIN = 2;
 export const QUESTION_OPTIONS_MAX = 4;
 
-export const SCORE_BASE_POINTS = 10;
-
 /** Clamp a question time limit into the allowed [5, 120] second range. */
 export function clampTimeLimitSeconds(seconds: number): number {
   return Math.min(
@@ -75,14 +73,11 @@ export const SOCKET_CONNECT_RATE_WINDOW_MS = 60_000;
 export const SOCKET_MESSAGE_RATE_LIMIT = 60;
 export const SOCKET_MESSAGE_RATE_WINDOW_MS = 10_000;
 
-// --- Scoring (PRD §5, DESIGN.md §5, Decision #1/#2) ---
+// --- Scoring (PRD §5, DESIGN.md §5, Decision #67) ---
 
-/** Ordered ascending; first bracket whose `maxPct` the answer's elapsed
- * fraction-of-time-limit falls within wins. */
-export const SCORE_BRACKETS: ReadonlyArray<{ maxPct: number; multiplier: number }> = [
-  { maxPct: 0.2, multiplier: 5 },
-  { maxPct: 0.4, multiplier: 4 },
-  { maxPct: 0.6, multiplier: 3 },
-  { maxPct: 0.8, multiplier: 2 },
-  { maxPct: 1.0, multiplier: 1 },
-];
+/** A correct answer earns SCORE_MAX_POINTS if it reaches the server the
+ * instant the question is broadcast, falling linearly to SCORE_MIN_POINTS
+ * at the time limit. Integer rounding leaves ~1 point per 40ms on a 20s
+ * question (240ms on 120s), so near-simultaneous answers still separate. */
+export const SCORE_MAX_POINTS = 1000;
+export const SCORE_MIN_POINTS = 500;

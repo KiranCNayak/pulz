@@ -196,3 +196,44 @@
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* End-of-game celebration (Confetti.tsx, and Avatar's `dancing`), on the
+   winner's results page and the Display's game-over screen. The burst
+   throws each piece out from the centre once (--burst-x/-y set per piece);
+   the rain then falls on a loop for as long as the page is open. */
+@keyframes confetti-burst {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(0.4);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--burst-x), var(--burst-y)) rotate(540deg) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+  }
+  100% {
+    transform: translateY(110vh) rotate(720deg);
+  }
+}
+
+/* A small side-to-side bop with a hop, for the winner's avatar. */
+@keyframes avatar-dance {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-14%) rotate(-12deg);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-14%) rotate(12deg);
+  }
+}

@@ -39,7 +39,11 @@ describe('JoinPage', () => {
     fireEvent.change(screen.getByLabelText(/your name/i), { target: { value: 'Alice' } })
     fireEvent.click(screen.getByRole('button', { name: /join/i }))
 
-    expect(mockSocket.emit).toHaveBeenCalledWith('join:request', { joinCode: 'ABC123', displayName: 'Alice' })
+    expect(mockSocket.emit).toHaveBeenCalledWith('join:request', {
+      joinCode: 'ABC123',
+      displayName: 'Alice',
+      avatar: expect.objectContaining({ emoji: expect.any(String), color: expect.any(String) }),
+    })
 
     act(() => {
       handlers.get('join:accepted')?.({ participantId: 'p1', participantToken: 'tok', role: 'PLAYER' })
@@ -47,6 +51,30 @@ describe('JoinPage', () => {
 
     expect(localStorage.getItem('pulz:participantToken')).toBe('tok')
     expect(navigateMock).toHaveBeenCalledWith('/play/ABC123')
+  })
+
+  it('sends the chosen avatar and remembers it for next time (Decision #74)', () => {
+    render(
+      <MemoryRouter>
+        <JoinPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Teal' }))
+    fireEvent.click(screen.getByRole('radio', { name: '🐙' }))
+    fireEvent.change(screen.getByLabelText(/join code/i), { target: { value: 'abc123' } })
+    fireEvent.change(screen.getByLabelText(/your name/i), { target: { value: 'Alice' } })
+    fireEvent.click(screen.getByRole('button', { name: /join/i }))
+
+    expect(mockSocket.emit).toHaveBeenCalledWith('join:request', {
+      joinCode: 'ABC123',
+      displayName: 'Alice',
+      avatar: { emoji: '🐙', color: 'teal' },
+    })
+    act(() => {
+      handlers.get('join:accepted')?.({ participantId: 'p1', participantToken: 'tok', role: 'PLAYER' })
+    })
+    expect(JSON.parse(localStorage.getItem('pulz:avatar')!)).toEqual({ emoji: '🐙', color: 'teal' })
   })
 
   it('shows the server error on join:error', () => {

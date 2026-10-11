@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { AnswerGrid } from '@/components/AnswerGrid'
+import { Avatar } from '@/components/Avatar'
 import { toAnswerOptions } from '@/components/answerStyles'
 import { ConnectionErrorMessage } from '@/components/ConnectionErrorMessage'
 import { Countdown } from '@/components/Countdown'
@@ -27,13 +28,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGameSocket } from '@/hooks/useGameSocket'
+import type { Avatar as AvatarValue } from '@/lib/avatars'
 import { formatNumber } from '@/lib/format'
+import { questionImageSrc } from '@/lib/images'
 import { useTheme } from '@/hooks/useTheme'
 import { questionDeadline } from '@/lib/questionTimer'
 import { getSocket } from '@/lib/socket'
 import { cn } from '@/lib/utils'
 
-type LobbyParticipant = { id: string; displayName: string }
+type LobbyParticipant = { id: string; displayName: string; avatar?: AvatarValue }
 
 type SessionStatus = 'LOBBY' | 'IN_PROGRESS' | 'ENDED'
 
@@ -44,6 +47,8 @@ type HostSnapshot = {
   questionCount: number
   currentQuestionIndex: number
   participants: LobbyParticipant[]
+  /** Mid-game joiners still waiting on Approve/Deny (Decision #73). */
+  pendingPromotions?: PromotionRequest[]
   /** Live game state for a mid-game (re)connect — backend buildScreenSnapshot. */
   live?: ScreenSnapshot
 }
@@ -52,6 +57,7 @@ type QuestionBroadcast = {
   questionId: string
   text: string
   mediaUrl?: string | null
+  imageId?: string | null
   options: { id: string; text: string }[]
   timeLimitSeconds: number
   serverStartTime: number
@@ -65,9 +71,17 @@ type QuestionReveal = {
   tally: Record<string, number>
 }
 
-type LeaderboardEntry = { participantId: string; displayName: string; score: number; rank: number }
+type LeaderboardEntry = {
+  participantId: string
+  displayName: string
+  avatar?: AvatarValue
+  score: number
+  rank: number
+  correctCount?: number
+  answeredCount?: number
+}
 
-type PromotionRequest = { participantId: string; displayName: string }
+type PromotionRequest = { participantId: string; displayName: string; avatar?: AvatarValue }
 
 type QuestionPhase = 'ACTIVE' | 'LOCKED'
 
@@ -92,8 +106,6 @@ const LEADERBOARD_LIMIT = 10
 
 /** Answer-slot colors (see answerStyles.ts), reused for player avatars so
  * the lobby carries the game's palette. */
-const AVATAR_COLORS = ['bg-[#e21b3c]', 'bg-[#1368ce]', 'bg-[#b87a00]', 'bg-[#26890c]']
-
 /**
  * Host controller: /host/:sessionId (DESIGN.md §6 "Controller"). Drives
  * the two-click-per-question flow from Decision #33: `host:lock_question`
@@ -145,6 +157,8 @@ export function HostPage() {
     const onAuthOk = (snap: HostSnapshot) => {
       setAuthError(null)
       setSnapshot(snap)
+      // A refresh must not drop anyone still waiting to be let in.
+      setPromotionRequests(snap.pendingPromotions ?? [])
       // Mid-game (re)connect (page refresh, dropped Wi-Fi): restore the
       // current question and its controls — without this the Lock/Next
       // buttons never came back and the game could not advance (Decision #64).
@@ -184,7 +198,9 @@ export function HostPage() {
     const onQuestionReveal = (payload: QuestionReveal) => setReveal(payload)
     const onLeaderboardUpdate = (payload: { ranked: LeaderboardEntry[] }) => setLeaderboard(payload.ranked)
     const onPromotionIncoming = (payload: PromotionRequest) =>
-      setPromotionRequests((prev) => [...prev, payload])
+      setPromotionRequests((prev) =>
+        prev.some((r) => r.participantId === payload.participantId) ? prev : [...prev, payload],
+      )
     const onGameEnded = (payload: { resultsUrl: string }) => {
       setResultsUrl(payload.resultsUrl)
       setSnapshot((prev) => (prev ? { ...prev, status: 'ENDED' } : prev))
@@ -523,20 +539,12 @@ function LobbyCard({ participants, onStart }: { participants: LobbyParticipant[]
           </div>
         ) : (
           <ul className="flex flex-wrap gap-2.5">
-            {participants.map((p, i) => (
+            {participants.map((p) => (
               <li
                 key={p.id}
                 className="flex items-center gap-2 rounded-full border bg-background py-1 pr-4 pl-1 text-sm font-medium shadow-xs motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 dark:bg-muted/40"
               >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'grid size-7 place-items-center rounded-full text-xs font-bold text-white uppercase',
-                    AVATAR_COLORS[i % AVATAR_COLORS.length],
-                  )}
-                >
-                  {p.displayName.trim().charAt(0)}
-                </span>
+                <Avatar avatar={p.avatar} name={p.displayName} className="size-7 text-base" />
                 <span>{p.displayName}</span>
               </li>
             ))}
@@ -566,6 +574,7 @@ function QuestionPanel({
 }) {
   const locked = phase === 'LOCKED'
   const isLast = question.index + 1 >= question.total
+  const imageSrc = questionImageSrc(question)
   const totalAnswers = reveal ? Object.values(reveal.tally).reduce((sum, n) => sum + n, 0) : null
 
   return (
@@ -608,10 +617,10 @@ function QuestionPanel({
         )}
       </div>
 
-      {question.mediaUrl && (
+      {imageSrc && (
         <div className="px-6 pt-5 sm:px-8">
           <img
-            src={question.mediaUrl}
+            src={imageSrc}
             alt=""
             className="max-h-56 w-full rounded-xl bg-muted object-contain"
           />
@@ -790,10 +799,16 @@ function LeaderboardCard({
               >
                 {entry.rank}
               </span>
+              <Avatar avatar={entry.avatar} name={entry.displayName} className="size-7 text-base" />
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{entry.displayName}</span>
-              <span className="text-sm font-semibold tabular-nums">
+              <span className="text-right text-sm font-semibold tabular-nums">
                 {formatNumber(entry.score)}
                 <span className="ml-1 text-xs font-normal text-muted-foreground">pts</span>
+                {final && entry.answeredCount !== undefined ? (
+                  <span className="block text-xs font-normal text-muted-foreground">
+                    {entry.correctCount} of {entry.answeredCount} correct
+                  </span>
+                ) : null}
               </span>
             </li>
           ))}
@@ -818,7 +833,7 @@ function PromotionRequestsCard({
       <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
         <div className="flex items-center gap-2">
           <UserPlus aria-hidden="true" className="size-4 text-muted-foreground" />
-          <h2 className="font-semibold">Spectator promotion requests</h2>
+          <h2 className="font-semibold">Join requests</h2>
         </div>
         <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground tabular-nums">
           {requests.length}
@@ -827,7 +842,10 @@ function PromotionRequestsCard({
       <ul className="divide-y">
         {requests.map((req) => (
           <li key={req.participantId} className="flex items-center justify-between gap-3 px-5 py-3">
-            <span className="min-w-0 truncate text-sm font-medium">{req.displayName}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <Avatar avatar={req.avatar} name={req.displayName} className="size-7 text-base" />
+              <span className="min-w-0 truncate text-sm font-medium">{req.displayName}</span>
+            </span>
             <div className="flex shrink-0 gap-2">
               <Button type="button" size="sm" onClick={() => onDecide(req.participantId, true)}>
                 <Check aria-hidden="true" />

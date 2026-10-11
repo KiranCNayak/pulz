@@ -1,4 +1,6 @@
 import { Crown } from 'lucide-react'
+import { Avatar } from '@/components/Avatar'
+import type { Avatar as AvatarValue } from '@/lib/avatars'
 import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -6,6 +8,11 @@ export type PodiumEntry = {
   rank: number
   name: string
   score: number
+  avatar?: AvatarValue
+  correctCount?: number
+  answeredCount?: number
+  /** This viewer won: their avatar dances (Decision #76). */
+  celebrate?: boolean
 }
 
 type PodiumProps = {
@@ -58,8 +65,19 @@ export function Podium({ entries }: PodiumProps) {
           {entry.rank === 1 ? (
             <Crown aria-hidden="true" className="mb-1 size-7 text-[#c99a1e] dark:text-medal-gold" />
           ) : null}
+          <Avatar
+            avatar={entry.avatar}
+            name={entry.name}
+            dancing={entry.celebrate}
+            className="mb-1 size-12 text-3xl"
+          />
           <div className="w-full font-display text-lg leading-tight font-bold [overflow-wrap:anywhere]">{entry.name}</div>
           <div className="text-sm font-medium text-muted-foreground tabular-nums">{formatNumber(entry.score)} pts</div>
+          {entry.answeredCount !== undefined ? (
+            <div className="text-xs text-muted-foreground tabular-nums">
+              {entry.correctCount} of {entry.answeredCount} correct
+            </div>
+          ) : null}
           <div
             className={cn(
               'mt-2 flex w-full justify-center rounded-t-2xl pt-3 shadow-[inset_0_1px_0_rgb(255_255_255/0.5)]',

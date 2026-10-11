@@ -19,8 +19,14 @@ Quiz
   questions: Question[]  (ordered)
 
 Question
-  id, quizId, order, text, mediaUrl?, timeLimitSeconds (default 20, 5-120)
+  id, quizId, order, text, mediaUrl?, imageId?, timeLimitSeconds (default 20, 5-120)
   options: Option[]      (2-4 per question)
+
+QuestionImage                    // Decision #75: at most one per question
+  id, creatorId, contentType (sniffed: jpeg/png/webp/gif), byteSize (<= 5 MB),
+  data (bytes, in Postgres), createdAt
+  // owned by the Creator, not the question; unreferenced images are swept
+  // after 24h; immutable, so a replacement is a new row
 
 Option
   id, questionId, text, isCorrect (exactly one true per question)
@@ -38,6 +44,7 @@ GameSession
 
 Participant
   id, sessionId, displayName
+  avatar: {emoji, color}         // Decision #74, server-side allowlists
   role: PLAYER | SPECTATOR
   joinedAt
   promotionStatus?: NONE | REQUESTED | APPROVED | DENIED
@@ -76,8 +83,9 @@ ResultsSnapshot
              │ host: start game
              ▼
        IN_PROGRESS ────────────► late joiners default to role=SPECTATOR
-             │                   spectators may request promotion;
-             │                   host approves/denies (per request)
+             │                   joining asks the host to let them play
+             │                   (automatic, Decision #73); host
+             │                   approves/denies (per request)
              │
              │ host: advance through all questions, then "end game"
              ▼
@@ -120,23 +128,23 @@ participant a socket is, and times answers on its own clock (§5).
 | Event | Direction | Payload |
 |---|---|---|
 | `host:auth` | H → server | `{sessionId, hostToken}` |
-| `host:auth_ok` | → H | `{sessionId, joinCode, status, questionCount, currentQuestionIndex, participants, live}` — `live` restores a mid-game screen (Decision #64) |
+| `host:auth_ok` | → H | `{sessionId, joinCode, status, questionCount, currentQuestionIndex, participants, pendingPromotions, live}` — `live` restores a mid-game screen (Decision #64); `pendingPromotions` (same shape as `promotion:incoming`) restores unanswered join requests (Decision #73) |
 | `host:auth_error` / `host:error` | → H | `{error}` |
 | `display:auth` | D → server | `{sessionId, displayToken}` |
 | `display:auth_ok` | → D | `{sessionId, status, joinCode, participants, live}` |
 | `display:auth_error` | → D | `{error}` |
-| `join:request` | P/S → server | `{joinCode, displayName?, participantToken?}` — a valid `participantToken` resumes that participant (reconnect, §9) |
-| `join:accepted` | → joining client | `{participantId, participantToken, role, resumed?, state?}` — `state` is the resume snapshot (Decision #53) |
+| `join:request` | P/S → server | `{joinCode, displayName?, avatar?: {emoji, color}, participantToken?}` — a valid `participantToken` resumes that participant (reconnect, §9); an avatar off the allowlists is replaced with a random one (Decision #74) |
+| `join:accepted` | → joining client | `{participantId, participantToken, role, avatar, promotionStatus, resumed?, state?}` — `state` is the resume snapshot (Decision #53) |
 | `join:error` | → joining client | `{error}` |
 | `connection:error` | → any client | `{error}` — rate-limit refusal, followed by a server disconnect (Decisions #59-60, #66) |
-| `session:lobby_update` | → H, D, P, S | `{participants: [{id, displayName, role}]}` (connected only) |
+| `session:lobby_update` | → H, D, P, S | `{participants: [{id, displayName, avatar, role}]}` (connected only) |
 
 **Game loop**
 
 | Event | Direction | Payload |
 |---|---|---|
 | `game:start` | H → server | — |
-| `question:broadcast` | → H, D, P, S | `{questionId, text, mediaUrl, options: [{id, text}], timeLimitSeconds, serverStartTime, index, total}` — options in this session's shuffled order, no correctness; each slot's color/shape is assigned client-side by position (Decision #48) |
+| `question:broadcast` | → H, D, P, S | `{questionId, text, mediaUrl, imageId, options: [{id, text}], timeLimitSeconds, serverStartTime, index, total}` — options in this session's shuffled order, no correctness; each slot's color/shape is assigned client-side by position (Decision #48) |
 | `answer:submit` | P → server | `{questionId, selectedOptionId}` |
 | `answer:ack` | → submitting P | `{received: true}` (no correctness yet) |
 | `answer:error` | → submitting P | `{error}` (e.g. already answered, question closed) |
@@ -144,7 +152,7 @@ participant a socket is, and times answers on its own clock (§5).
 | `question:locked` | → H, D, P, S | `{questionId, reason: 'host' \| 'timer' \| 'all_answered'}` (Decision #63) |
 | `question:reveal` | → H, D, P, S | `{questionId, correctOptionId, tally: {optionId: count}}` |
 | `answer:result` | → each connected P | `{isCorrect, pointsEarned, myRank, totalPlayers}` |
-| `leaderboard:update` | → H, D | `{ranked: [{participantId, displayName, score, rank}]}` |
+| `leaderboard:update` | → H, D | `{ranked: [{participantId, displayName, avatar, score, rank, correctCount, answeredCount}]}` — the same entry shape as the results payload (Decision #72) |
 | `host:next_question` | H → server | — (next `question:broadcast`, or `game:ended` after the last) |
 | `game:ended` | → H, D, P, S | `{resultsUrl}` — results are then fetched over REST (`GET /results/:sessionId`, paginated), not pushed |
 
@@ -152,8 +160,8 @@ participant a socket is, and times answers on its own clock (§5).
 
 | Event | Direction | Payload |
 |---|---|---|
-| `promotion:request` | S → server | — |
-| `promotion:incoming` | → H | `{participantId, displayName}` |
+| `promotion:request` | S → server | — (only to ask again after a denial: a mid-game join already sends the request, Decision #73; ignored while one is pending) |
+| `promotion:incoming` | → H | `{participantId, displayName, avatar}` — sent the moment someone joins mid-game |
 | `promotion:decision` | H → server | `{participantId, approve: bool}` |
 | `promotion:result` | → requesting S | `{approved: bool}` |
 

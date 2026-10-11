@@ -29,6 +29,7 @@ const questionSchema = {
   properties: {
     text: { type: "string", minLength: 1, maxLength: 500 },
     mediaUrl: { type: ["string", "null"], format: "uri" },
+    imageId: { type: ["string", "null"], format: "uuid" },
     timeLimitSeconds: {
       type: "integer",
       minimum: QUESTION_TIME_LIMIT_MIN_SECONDS,
@@ -78,6 +79,7 @@ export const updateQuestionSchema = {
     properties: {
       text: { type: "string", minLength: 1, maxLength: 500 },
       mediaUrl: { type: ["string", "null"], format: "uri" },
+      imageId: { type: ["string", "null"], format: "uuid" },
       timeLimitSeconds: {
         type: "integer",
         minimum: QUESTION_TIME_LIMIT_MIN_SECONDS,

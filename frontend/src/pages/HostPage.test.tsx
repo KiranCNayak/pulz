@@ -215,6 +215,27 @@ describe('HostPage', () => {
     expect(screen.queryByText('Spec Two')).not.toBeInTheDocument()
   })
 
+  it('restores pending join requests after a refresh, without duplicating a re-sent one (Decision #73)', () => {
+    renderHostPage('/host/session-1?token=host-token-abc')
+    act(() => {
+      listeners.get('connect')?.(undefined)
+      listeners.get('host:auth_ok')?.({
+        sessionId: 'session-1',
+        joinCode: 'ABC123',
+        status: 'IN_PROGRESS',
+        questionCount: 2,
+        currentQuestionIndex: 0,
+        participants: [],
+        pendingPromotions: [{ participantId: 's1', displayName: 'Late Lou', avatar: { emoji: '🐢', color: 'green' } }],
+      })
+      listeners.get('promotion:incoming')?.({ participantId: 's1', displayName: 'Late Lou' })
+    })
+
+    expect(screen.getByRole('heading', { name: 'Join requests' })).toBeInTheDocument()
+    expect(screen.getAllByText('Late Lou')).toHaveLength(1)
+    expect(screen.getByText('🐢')).toBeInTheDocument()
+  })
+
   it('shows the ended state with a results link', () => {
     authenticate()
     act(() => listeners.get('game:ended')?.({ resultsUrl: '/results/session-1' }))

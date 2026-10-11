@@ -13,7 +13,7 @@ live scoring, leaderboard rank, and a podium finish.
 
 **The MVP is feature-complete and verified end-to-end.** Don't assume this
 summary stays accurate as work continues — verify with `ls`/`git log`, and
-see `docs/DECISIONS.md` (the log runs to #71) for the why behind each piece.
+see `docs/DECISIONS.md` (the log runs to #76) for the why behind each piece.
 
 - **Home** (`/`) and a documented visual system (`docs/DESIGN_SYSTEM.md`,
   Decision #68): ink stage, one lime accent, Outfit/Geist type.
@@ -23,7 +23,8 @@ see `docs/DECISIONS.md` (the log runs to #71) for the why behind each piece.
   (1/6/24h, Decision #65) that hands off Host/Display links.
 - **Live game** over Socket.IO: Host controller, projector Display, and
   player phones that mirror the Display's shape layout (Decision #62). Join
-  by code; late joiners spectate and can request to play; questions close
+  by code; late joiners watch while the host is asked to let them play
+  (Decision #73); questions close
   when the host locks, the timer runs out, or every connected player has
   answered (Decision #63); scoring is server-authoritative and
   time-proportional, so faster correct answers always score more
@@ -31,7 +32,13 @@ see `docs/DECISIONS.md` (the log runs to #71) for the why behind each piece.
 - **Reconnect everywhere**: players (page refresh or network drop,
   Decisions #53/#58) and Host/Display (Decision #64) resume mid-game.
 - **Results**: podium + paginated ranks at `/results/:sessionId`, from a
-  `ResultsSnapshot` that expires per the session's retention choice.
+  `ResultsSnapshot` that expires per the session's retention choice; each
+  player shows "X of Y correct" (Decision #72), and the winner's own phone
+  celebrates (Decision #76).
+- **Owner requests after the MVP (2026-10-12):** joining mid-game asks the
+  host automatically, with no "request to play" button (Decision #73);
+  emoji-on-colour avatars picked at join (Decision #74); one optional image
+  per question, up to 5 MB, stored in Postgres (Decision #75).
 - **Abuse resilience (app-level)**: join-code lockout, composite-key
   (IP + client id) connect/join limits, a per-connection message cap, and a
   registration limit (Decisions #23, #59, #66, #38). The Cloudflare/Turnstile

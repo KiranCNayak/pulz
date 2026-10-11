@@ -40,6 +40,7 @@ model Creator {
   createdAt    DateTime @default(now()) @map("created_at")
 
   quizzes Quiz[]
+  images  QuestionImage[]
 
   @@map("creators")
 }
@@ -65,17 +66,45 @@ model Question {
   order            Int
   text             String
   mediaUrl         String? @map("media_url")
+  // Uploaded image shown with the question (Decision #75). Set null if the
+  // image row is ever deleted; the question itself is unaffected.
+  imageId          String? @map("image_id")
   // Default 20s, clamped 5-120s (PRD §4.1 / Decision #3).
   // Clamped in the application layer on write; also DB-level CHECK
   // (see migration.sql) so the invariant holds even for direct DB writes.
   timeLimitSeconds Int     @default(20) @map("time_limit_seconds")
 
-  quiz    Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quiz    Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  image   QuestionImage? @relation(fields: [imageId], references: [id], onDelete: SetNull)
   options Option[]
 
   // Question ordering is unique per quiz.
   @@unique([quizId, order])
+  @@index([imageId])
   @@map("questions")
+}
+
+// Question images (Decision #75), stored as bytes in Postgres so there's no
+// second storage service to provision. Owned by the Creator who uploaded
+// them, not by a question: the editor uploads before the question is saved,
+// and an image no question points at any more is swept after a day
+// (db/imageCleanup.ts). Immutable — replacing an image uploads a new row —
+// so GET /images/:id can be cached forever.
+model QuestionImage {
+  id          String   @id @default(uuid())
+  creatorId   String   @map("creator_id")
+  // Sniffed from the bytes on upload (JPEG/PNG/WebP/GIF only), never taken
+  // from the request's Content-Type alone.
+  contentType String   @map("content_type")
+  byteSize    Int      @map("byte_size")
+  data        Bytes
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  creator   Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@index([creatorId])
+  @@map("question_images")
 }
 
 model Option {

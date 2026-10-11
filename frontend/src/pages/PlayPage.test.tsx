@@ -112,40 +112,53 @@ describe('PlayPage', () => {
     expect(screen.getByText('4')).toBeInTheDocument() // "Correct answer: 4"
   })
 
-  it('lets a mid-game joiner ask to play, and answer once the host approves', () => {
+  it('has a mid-game joiner wait for the host with nothing to tap, then play once approved (Decision #73)', () => {
     renderPlayPage()
-    // Joined after the game started: resumed straight into the active question as a spectator.
+    // Joined after the game started: the server already asked the host.
     serverEmits('join:accepted', {
       participantId: 'p9',
       participantToken: 'participant-token',
       role: 'SPECTATOR',
+      promotionStatus: 'REQUESTED',
       state: { status: 'IN_PROGRESS', question: { ...QUESTION, phase: 'ACTIVE' }, answeredOptionId: null },
     })
     expect(screen.getByRole('button', { name: '4' })).toBeDisabled()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Request to play' }))
-    expect(fakeSocket.emit).toHaveBeenCalledWith('promotion:request')
-    expect(screen.getByRole('button', { name: 'Request sent' })).toBeDisabled()
+    expect(screen.getByText(/Waiting for the host to let you play/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /ask|request/i })).not.toBeInTheDocument()
+    expect(fakeSocket.emit).not.toHaveBeenCalledWith('promotion:request')
 
     serverEmits('promotion:result', { approved: true })
-    expect(screen.queryByRole('button', { name: /Request/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Waiting for the host to let you play/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '4' }))
     expect(fakeSocket.emit).toHaveBeenCalledWith('answer:submit', { questionId: 'q1', selectedOptionId: 'o2' })
   })
 
-  it('tells a spectator when the host declines, and lets them ask again', () => {
+  it('tells a spectator when the host declines, and only then offers to ask again', () => {
     renderPlayPage()
     serverEmits('join:accepted', {
       participantId: 'p9',
       participantToken: 'participant-token',
       role: 'SPECTATOR',
+      promotionStatus: 'REQUESTED',
       state: { status: 'IN_PROGRESS', question: { ...QUESTION, phase: 'ACTIVE' }, answeredOptionId: null },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Request to play' }))
     serverEmits('promotion:result', { approved: false })
 
     expect(screen.getByText(/host said not yet/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Request to play' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Ask again' }))
+    expect(fakeSocket.emit).toHaveBeenCalledWith('promotion:request')
+    expect(screen.getByText(/Waiting for the host to let you play/)).toBeInTheDocument()
+  })
+
+  it("shows the player's avatar from join:accepted", () => {
+    renderPlayPage()
+    serverEmits('join:accepted', {
+      participantId: 'p1',
+      participantToken: 'participant-token',
+      role: 'PLAYER',
+      avatar: { emoji: '🐙', color: 'teal' },
+    })
+    expect(screen.getByText('🐙')).toBeInTheDocument()
   })
 
   it('shows answer tiles as shapes only, keeping each option as its accessible name', () => {

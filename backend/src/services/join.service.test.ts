@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createParticipant, lobbyParticipantList, roleForJoin, validateDisplayName } from "./join.service.js";
+import {
+  createParticipant,
+  lobbyParticipantList,
+  roleForJoin,
+  validateAvatar,
+  validateDisplayName,
+} from "./join.service.js";
+import { AVATAR_COLORS, AVATAR_EMOJIS } from "../domain/constants.js";
 import type { GameSession } from "../types/session.js";
 
 function makeSession(status: GameSession["status"]): GameSession {
@@ -39,6 +46,26 @@ describe("validateDisplayName", () => {
 
   it("rejects names over 24 characters", () => {
     expect(validateDisplayName("a".repeat(25))).toBeUndefined();
+  });
+});
+
+describe("validateAvatar (Decision #74)", () => {
+  it("keeps a choice from the allowlists", () => {
+    expect(validateAvatar({ emoji: "🦊", color: "teal" })).toEqual({ emoji: "🦊", color: "teal" });
+  });
+
+  it("swaps anything off the allowlists for a random valid pick", () => {
+    for (const raw of [undefined, null, "🦊", { emoji: "<b>hi</b>", color: "#ff00ff" }, { emoji: 42 }]) {
+      const avatar = validateAvatar(raw);
+      expect(AVATAR_EMOJIS).toContain(avatar.emoji);
+      expect(AVATAR_COLORS).toContain(avatar.color);
+    }
+  });
+
+  it("keeps the valid half of a half-valid choice", () => {
+    const avatar = validateAvatar({ emoji: "🐙", color: "rainbow" });
+    expect(avatar.emoji).toBe("🐙");
+    expect(AVATAR_COLORS).toContain(avatar.color);
   });
 });
 
@@ -88,6 +115,6 @@ describe("lobbyParticipantList", () => {
     disconnected.connected = false;
 
     const list = lobbyParticipantList(session);
-    expect(list).toEqual([{ id: connected.id, displayName: "Alex", role: "PLAYER" }]);
+    expect(list).toEqual([{ id: connected.id, displayName: "Alex", avatar: connected.avatar, role: "PLAYER" }]);
   });
 });

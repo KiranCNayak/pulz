@@ -3,12 +3,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AnswerGrid } from '@/components/AnswerGrid'
 import { AnswerShape } from '@/components/AnswerShape'
+import { Avatar } from '@/components/Avatar'
 import { ANSWER_SLOT_STYLES, toAnswerOptions } from '@/components/answerStyles'
 import { Countdown } from '@/components/Countdown'
 import { GameStage } from '@/components/GameStage'
 import { Button } from '@/components/ui/button'
-import { getParticipantToken, setParticipantToken, useGameSocket } from '@/hooks/useGameSocket'
+import { getParticipantToken, setParticipantId, setParticipantToken, useGameSocket } from '@/hooks/useGameSocket'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { getSavedAvatar, type Avatar as AvatarValue } from '@/lib/avatars'
 import { formatNumber } from '@/lib/format'
 import { questionDeadline } from '@/lib/questionTimer'
 import { getSocket } from '@/lib/socket'
@@ -46,6 +48,8 @@ type JoinAcceptedPayload = {
   participantId: string
   participantToken: string
   role: 'PLAYER' | 'SPECTATOR'
+  avatar?: AvatarValue
+  promotionStatus?: 'NONE' | 'REQUESTED' | 'APPROVED' | 'DENIED'
   resumed?: boolean
   state?: ResumeState
 }
@@ -86,6 +90,9 @@ export function PlayPage() {
   const [question, setQuestion] = useState<QuestionBroadcast | null>(null)
   const [deadline, setDeadline] = useState<number | null>(null)
   const [displayName] = useState(() => localStorage.getItem('pulz:displayName'))
+  // The server's copy wins (it may have swapped an invalid pick); the saved
+  // one just avoids a blank circle until join:accepted lands.
+  const [avatar, setAvatar] = useState<AvatarValue | null>(() => getSavedAvatar())
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null)
   // Server confirmation for the selected answer (`answer:ack`, DESIGN.md
   // §3) — until it arrives, the tap is only known to have left this
@@ -101,7 +108,13 @@ export function PlayPage() {
 
     function onJoinAccepted(payload: JoinAcceptedPayload) {
       setParticipantToken(payload.participantToken)
+      setParticipantId(payload.participantId)
       setRole(payload.role)
+      if (payload.avatar) setAvatar(payload.avatar)
+      // Joining mid-game already asked the host (Decision #73), so a
+      // spectator starts out waiting, not with a button to press.
+      setPromotionRequested(payload.promotionStatus === 'REQUESTED')
+      setPromotionDenied(payload.promotionStatus === 'DENIED')
 
       const state = payload.state
       if (!state || state.status === 'LOBBY' || !state.question) {
@@ -243,30 +256,23 @@ export function PlayPage() {
       <StageMessage>
         <ShapeParade />
         <h1 className="font-display text-5xl font-extrabold tracking-tight">You're in!</h1>
+        {avatar ? <Avatar avatar={avatar} className="size-24 text-6xl ring-4 ring-white/15" /> : null}
         {displayName ? (
           <p className="max-w-full rounded-full bg-white/10 px-6 py-2.5 font-display text-2xl font-bold ring-1 ring-stage-line [overflow-wrap:anywhere]">
             {displayName}
           </p>
         ) : null}
-        <p className="flex items-center gap-2.5 text-stage-muted">
-          <span aria-hidden="true" className="relative flex size-2">
-            <span className="absolute inline-flex size-full rounded-full bg-signal opacity-70 motion-safe:animate-ping" />
-            <span className="relative inline-flex size-2 rounded-full bg-signal" />
-          </span>
-          Waiting for the host to start the game…
-        </p>
         {role === 'SPECTATOR' ? (
-          <div className="mt-4 flex flex-col items-center gap-3">
-            <p className="text-sm text-stage-muted">The game already started, so you're spectating for now.</p>
-            <Button
-              size="lg"
-              onClick={handleRequestPromotion}
-              disabled={promotionRequested}
-            >
-              {promotionRequested ? 'Request sent' : 'Request to play'}
-            </Button>
-          </div>
-        ) : null}
+          <SpectatorStatus denied={promotionDenied} requested={promotionRequested} onAskAgain={handleRequestPromotion} />
+        ) : (
+          <p className="flex items-center gap-2.5 text-stage-muted">
+            <span aria-hidden="true" className="relative flex size-2">
+              <span className="absolute inline-flex size-full rounded-full bg-signal opacity-70 motion-safe:animate-ping" />
+              <span className="relative inline-flex size-2 rounded-full bg-signal" />
+            </span>
+            Waiting for the host to start the game…
+          </p>
+        )}
       </StageMessage>
     )
   }
@@ -326,6 +332,7 @@ export function PlayPage() {
             Q {question.index + 1}/{question.total}
           </span>
         ) : null}
+        {avatar ? <Avatar avatar={avatar} className="size-7 text-base" /> : null}
         {displayName ? <span className="min-w-0 truncate text-sm text-stage-muted">{displayName}</span> : null}
         {question && deadline !== null ? (
           <Countdown
@@ -345,22 +352,11 @@ export function PlayPage() {
 
       <div className="flex min-h-14 items-center justify-center px-4 pt-1 pb-4 text-center text-sm" aria-live="polite">
         {role === 'SPECTATOR' ? (
-          // Joined after the game started (DESIGN.md §2): the host has to let
-          // them in, from the next answer on — no retroactive points
-          // (Decision #13). This is the only screen a late joiner ever sees,
-          // so the request has to live here, not just in the lobby.
-          <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-            <span className="text-stage-muted">
-              {promotionDenied ? 'The host said not yet. You can ask again.' : "You joined mid-game, so you're watching."}
-            </span>
-            <Button
-              size="sm"
-              onClick={handleRequestPromotion}
-              disabled={promotionRequested}
-            >
-              {promotionRequested ? 'Request sent' : 'Request to play'}
-            </Button>
-          </span>
+          // Joined after the game started (DESIGN.md §2): joining already
+          // asked the host (Decision #73), who lets them in from the next
+          // answer on — no retroactive points (Decision #13). This is the
+          // only screen a late joiner ever sees, so the status lives here too.
+          <SpectatorStatus denied={promotionDenied} requested={promotionRequested} onAskAgain={handleRequestPromotion} small />
         ) : answerError && !result ? (
           <span className="rounded-full bg-stage-incorrect px-4 py-1.5 font-medium">{answerError}</span>
         ) : phase === 'locked' ? (
@@ -388,6 +384,37 @@ export function PlayPage() {
         </div>
       ) : null}
     </GameStage>
+  )
+}
+
+/** What a mid-game joiner sees while the host decides: a waiting note,
+ * or — only after a "not yet" — a way to ask again. */
+function SpectatorStatus({
+  requested,
+  denied,
+  onAskAgain,
+  small,
+}: {
+  requested: boolean
+  denied: boolean
+  onAskAgain: () => void
+  small?: boolean
+}) {
+  if (denied && !requested) {
+    return (
+      <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+        <span className="text-stage-muted">The host said not yet. You're watching for now.</span>
+        <Button size={small ? 'sm' : 'lg'} onClick={onAskAgain}>
+          Ask again
+        </Button>
+      </span>
+    )
+  }
+  return (
+    <span className="flex items-center gap-2.5 text-stage-muted">
+      <LoaderCircle aria-hidden="true" className="size-4 shrink-0 motion-safe:animate-spin" />
+      You joined mid-game. Waiting for the host to let you play…
+    </span>
   )
 }
 

@@ -11,6 +11,8 @@ export interface OptionInput {
 export interface QuestionInput {
   text: string;
   mediaUrl?: string | null;
+  /** An image uploaded via POST /images by the same Creator (Decision #75). */
+  imageId?: string | null;
   /** Optional; defaults to 20s and is clamped to [5, 120] server-side. */
   timeLimitSeconds?: number;
   options: OptionInput[];

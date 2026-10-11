@@ -27,6 +27,7 @@ function toQuestionInput(question: Question): QuestionInput {
   return {
     text: question.text,
     mediaUrl: question.mediaUrl,
+    imageId: question.imageId,
     timeLimitSeconds: question.timeLimitSeconds,
     options: question.options.map((option) => ({ text: option.text, isCorrect: option.isCorrect })),
   }

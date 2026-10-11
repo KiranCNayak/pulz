@@ -19,6 +19,7 @@
 import type { Server } from "socket.io";
 import { clampTimeTakenMs, computePoints } from "../domain/scoring.js";
 import { shuffled } from "../domain/shuffle.js";
+import { rankStandings } from "../domain/standings.js";
 import { releaseJoinCode } from "../domain/sessionStore.js";
 import { answersSubmitted, gamesEnded, gamesStarted, questionsLocked } from "../observability/metrics.js";
 import { writeResultsSnapshot } from "./results.service.js";
@@ -57,24 +58,10 @@ function playerCount(session: GameSession): number {
   return n;
 }
 
-/** Standard competition ranking (ties share a rank) over current PLAYER
- * scores — used for both the host's full leaderboard and each player's
- * own "X of Y". */
+/** Live standings over current PLAYERs — used for both the host's full
+ * leaderboard and each player's own "X of Y". */
 function rankPlayers(session: GameSession): PodiumEntry[] {
-  const players = [...session.participants.values()]
-    .filter((p) => p.role === "PLAYER")
-    .sort((a, b) => b.score - a.score);
-
-  const ranked: PodiumEntry[] = [];
-  let lastScore: number | undefined;
-  let lastRank = 0;
-  players.forEach((p, index) => {
-    const rank = p.score === lastScore ? lastRank : index + 1;
-    ranked.push({ participantId: p.id, displayName: p.displayName, score: p.score, rank });
-    lastScore = p.score;
-    lastRank = rank;
-  });
-  return ranked;
+  return rankStandings([...session.participants.values()].filter((p) => p.role === "PLAYER"));
 }
 
 /** The `question:broadcast` payload for the current question (also the
@@ -85,6 +72,7 @@ function questionPayload(session: GameSession, current: ActiveQuestionState) {
     questionId: current.question.id,
     text: current.question.text,
     mediaUrl: current.question.mediaUrl,
+    imageId: current.question.imageId,
     options: publicOptions(current.question, current.optionOrder),
     timeLimitSeconds: current.question.timeLimitSeconds,
     serverStartTime: current.broadcastAt,

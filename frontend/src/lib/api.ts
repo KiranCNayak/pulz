@@ -21,7 +21,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   // body parser rejects an empty body sent with 'application/json'
   // (FST_ERR_CTP_EMPTY_JSON_BODY), which broke bodyless calls like
   // POST /auth/register.
-  if (init.body !== undefined) {
+  // (POST /images sets its own image Content-Type.)
+  if (init.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
   if (token) {

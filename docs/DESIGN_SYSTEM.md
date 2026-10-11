@@ -124,13 +124,21 @@ large surfaces, a second accent colour.
   zooms in and the leaderboard staggers in (state change), lobby names pop
   as they join (presence), the podium rises 3rd, 2nd, 1st (storytelling),
   and the countdown ticks in its last five seconds (urgency).
+- The one looping celebration (Decision #76): confetti bursts, then rains
+  for as long as the screen is open, and the winner's avatar bops on the
+  podium. It runs on the Display's game-over screen and on the winner's
+  own results page (not other players'), from one shared `Confetti`
+  component and `Avatar dancing` prop. Under reduced motion the confetti is
+  hidden and the avatar stays still.
 - Durations of 150 to 200ms for feedback and 300 to 600ms for
   state changes, easing `cubic-bezier(0.16, 1, 0.3, 1)`. Transitions name
   their properties; never `transition: all`. Transform and opacity only.
 
 ## 7. Anti-Patterns (Banned)
 - Emoji as icons (the old podium medals); use Lucide (the one icon family,
-  stroke 2) or numerals.
+  stroke 2) or numerals. Player avatars are the one exception: they're the
+  player's chosen identity, not an icon (Decision #74), always an emoji on a
+  circle in one of the 8 avatar colours.
 - Raw enums in UI (`IN_PROGRESS`); always human labels.
 - Purple or neon gradients, outer glows, gradient text, custom cursors.
 - Three equal feature cards; fake screenshots built from divs; fake

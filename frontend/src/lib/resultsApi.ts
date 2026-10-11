@@ -1,10 +1,18 @@
+import type { Avatar } from '@/lib/avatars'
+
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 
+// avatar and the counts are absent from results saved before Decisions
+// #72/#74, which can still be read until their TTL runs out.
 export type PodiumEntry = {
   participantId: string
   displayName: string
+  avatar?: Avatar
   score: number
   rank: number
+  /** Correct answers out of answers given (Decision #72). */
+  correctCount?: number
+  answeredCount?: number
 }
 
 export type ResultsResponse = {

@@ -13,6 +13,7 @@ export type Question = {
   order: number
   text: string
   mediaUrl: string | null
+  imageId: string | null
   timeLimitSeconds: number
   options: Option[]
 }
@@ -35,6 +36,7 @@ export type OptionInput = {
 export type QuestionInput = {
   text: string
   mediaUrl?: string | null
+  imageId?: string | null
   timeLimitSeconds?: number
   options: OptionInput[]
 }

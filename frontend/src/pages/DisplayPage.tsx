@@ -2,14 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { Check, ChevronUp, Crown, Loader2, TriangleAlert, Trophy, Users, X } from 'lucide-react'
 import { AnswerGrid } from '@/components/AnswerGrid'
-import { AnswerShape } from '@/components/AnswerShape'
+import { Confetti } from '@/components/Confetti'
+import { Avatar } from '@/components/Avatar'
 import { toAnswerOptions } from '@/components/answerStyles'
 import { Countdown } from '@/components/Countdown'
 import { GameStage } from '@/components/GameStage'
 import { Wordmark } from '@/components/Logo'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGameSocket } from '@/hooks/useGameSocket'
+import type { Avatar as AvatarValue } from '@/lib/avatars'
 import { formatNumber } from '@/lib/format'
+import { questionImageSrc } from '@/lib/images'
 import { questionDeadline } from '@/lib/questionTimer'
 import { getSocket } from '@/lib/socket'
 import { cn } from '@/lib/utils'
@@ -18,7 +21,7 @@ type AuthStatus = 'connecting' | 'ok' | 'error'
 
 type SessionStatus = 'LOBBY' | 'IN_PROGRESS' | 'ENDED'
 
-type LobbyParticipant = { id: string; displayName: string; role?: string }
+type LobbyParticipant = { id: string; displayName: string; avatar?: AvatarValue; role?: string }
 
 type DisplayAuthOk = {
   sessionId?: string
@@ -38,6 +41,7 @@ type QuestionBroadcast = {
   questionId: string
   text: string
   mediaUrl?: string | null
+  imageId?: string | null
   options: Array<{ id: string; text: string }>
   timeLimitSeconds: number
   serverStartTime: number
@@ -54,8 +58,11 @@ type RevealPayload = {
 type LeaderboardEntry = {
   participantId: string
   displayName: string
+  avatar?: AvatarValue
   score: number
   rank: number
+  correctCount?: number
+  answeredCount?: number
 }
 
 /** A leaderboard row plus what changed since the previous standings —
@@ -289,11 +296,16 @@ function LobbyScreen({ joinCode, participants }: { joinCode: string | null; part
               <li
                 key={player.id}
                 className={cn(
-                  'max-w-md truncate rounded-full bg-white/10 font-display font-bold ring-1 ring-stage-line motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:fade-in motion-safe:duration-300',
-                  players.length > 16 ? 'px-5 py-2 text-2xl' : 'px-7 py-3 text-3xl',
+                  'flex max-w-md items-center gap-3 rounded-full bg-white/10 font-display font-bold ring-1 ring-stage-line motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:fade-in motion-safe:duration-300',
+                  players.length > 16 ? 'py-1.5 pr-5 pl-1.5 text-2xl' : 'py-2 pr-7 pl-2 text-3xl',
                 )}
               >
-                {player.displayName}
+                <Avatar
+                  avatar={player.avatar}
+                  name={player.displayName}
+                  className={players.length > 16 ? 'size-10 text-2xl' : 'size-12 text-3xl'}
+                />
+                <span className="min-w-0 truncate">{player.displayName}</span>
               </li>
             ))}
             {players.length > MAX_LOBBY_CHIPS && (
@@ -343,9 +355,9 @@ function QuestionScreen({ question, deadline }: { question: QuestionBroadcast; d
         <h1 className="max-w-7xl text-center font-display text-[clamp(3rem,5vw,5.75rem)] leading-[1.08] font-extrabold tracking-tight text-balance">
           {question.text}
         </h1>
-        {question.mediaUrl && (
+        {questionImageSrc(question) && (
           <img
-            src={question.mediaUrl}
+            src={questionImageSrc(question)!}
             alt=""
             className="max-h-[30vh] max-w-full rounded-2xl object-contain shadow-2xl ring-4 ring-white/10"
           />
@@ -492,6 +504,7 @@ function LeaderboardPanel({ standings }: { standings: Standing[] }) {
             >
               {entry.rank}
             </span>
+            <Avatar avatar={entry.avatar} name={entry.displayName} className="size-14 text-4xl" />
             <span className="min-w-0 flex-1 truncate font-display text-4xl font-bold">{entry.displayName}</span>
             {entry.rankChange > 0 && (
               <span className="flex shrink-0 items-center text-2xl font-extrabold text-signal tabular-nums">
@@ -532,33 +545,6 @@ const PODIUM_COLORS: Record<number, string> = {
   3: 'bg-medal-bronze text-[#0e1118]',
 }
 
-/** Fixed confetti scatter (answer-tile shapes/colors) — deterministic so
- * renders stay pure; it just drops in once. */
-type ConfettiPiece = {
-  shape: 'circle' | 'triangle' | 'square' | 'diamond'
-  color: string
-  left: string
-  top: string
-  size: string
-  rotate: number
-}
-
-const CONFETTI: ConfettiPiece[] = [
-  // Kept to the side gutters and the band between title and podium.
-  { shape: 'triangle', color: '#e21b3c', left: '5%', top: '12%', size: 'size-10', rotate: 18 },
-  { shape: 'square', color: '#26890c', left: '13%', top: '28%', size: 'size-7', rotate: 24 },
-  { shape: 'diamond', color: '#1368ce', left: '6%', top: '47%', size: 'size-8', rotate: 0 },
-  { shape: 'circle', color: '#f5b400', left: '14%', top: '63%', size: 'size-6', rotate: 0 },
-  { shape: 'triangle', color: '#1368ce', left: '4%', top: '80%', size: 'size-7', rotate: -30 },
-  { shape: 'circle', color: '#e21b3c', left: '29%', top: '26%', size: 'size-5', rotate: 0 },
-  { shape: 'square', color: '#f5b400', left: '68%', top: '24%', size: 'size-6', rotate: -12 },
-  { shape: 'triangle', color: '#26890c', left: '93%', top: '11%', size: 'size-10', rotate: -20 },
-  { shape: 'diamond', color: '#e21b3c', left: '85%', top: '29%', size: 'size-9', rotate: 0 },
-  { shape: 'circle', color: '#1368ce', left: '94%', top: '46%', size: 'size-7', rotate: 0 },
-  { shape: 'square', color: '#e21b3c', left: '86%', top: '64%', size: 'size-6', rotate: 40 },
-  { shape: 'diamond', color: '#f5b400', left: '95%', top: '79%', size: 'size-6', rotate: 0 },
-]
-
 function GameOverScreen({ standings }: { standings: Standing[] | null }) {
   const podium = (standings ?? []).slice(0, 3)
   const rest = (standings ?? []).slice(3, 10)
@@ -569,23 +555,7 @@ function GameOverScreen({ standings }: { standings: Standing[] | null }) {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_32%_48%_at_50%_62%,rgb(245_200_75/0.16),transparent_70%)]"
       />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        {CONFETTI.map((piece, index) => (
-          <span
-            key={index}
-            className="absolute motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-40 motion-safe:duration-1000 motion-safe:fill-mode-backwards"
-            style={{
-              left: piece.left,
-              top: piece.top,
-              color: piece.color,
-              rotate: `${piece.rotate}deg`,
-              animationDelay: `${(index % 5) * 120}ms`,
-            }}
-          >
-            <AnswerShape shape={piece.shape} className={cn(piece.size, 'opacity-80')} />
-          </span>
-        ))}
-      </div>
+      <Confetti scale={2.5} />
 
       <h1 className="relative flex items-center gap-5 font-display text-8xl font-extrabold tracking-tight motion-safe:animate-in motion-safe:zoom-in-75 motion-safe:fade-in motion-safe:duration-700">
         <Trophy aria-hidden="true" className="size-20 text-medal-gold" />
@@ -606,10 +576,23 @@ function GameOverScreen({ standings }: { standings: Standing[] | null }) {
                 )}
               >
                 {entry.rank === 1 && <Crown aria-hidden="true" className="size-16 text-medal-gold drop-shadow-lg" />}
+                <Avatar
+                  avatar={entry.avatar}
+                  name={entry.displayName}
+                  dancing={entry.rank === 1}
+                  className={cn('ring-4 ring-white/15', index === 0 ? 'size-24 text-6xl' : 'size-20 text-5xl')}
+                />
                 <p className={cn('max-w-full truncate px-2 font-display font-extrabold', index === 0 ? 'text-6xl' : 'text-5xl')}>
                   {entry.displayName}
                 </p>
-                <p className="mb-2 text-3xl font-bold text-stage-muted tabular-nums">{formatNumber(entry.score)} pts</p>
+                <p className={cn('text-3xl font-bold text-stage-muted tabular-nums', entry.answeredCount === undefined && 'mb-2')}>
+                  {formatNumber(entry.score)} pts
+                </p>
+                {entry.answeredCount !== undefined ? (
+                  <p className="mb-2 text-2xl font-semibold text-stage-muted tabular-nums">
+                    {entry.correctCount} of {entry.answeredCount} correct
+                  </p>
+                ) : null}
                 <div
                   className={cn(
                     'flex w-full items-start justify-center rounded-t-3xl pt-5 shadow-[inset_0_2px_0_rgb(255_255_255/0.45),0_-8px_40px_rgb(0_0_0/0.3)]',
@@ -637,6 +620,7 @@ function GameOverScreen({ standings }: { standings: Standing[] | null }) {
               <span className="grid size-11 place-items-center rounded-full bg-white/15 text-2xl tabular-nums">
                 {entry.rank}
               </span>
+              <Avatar avatar={entry.avatar} name={entry.displayName} className="size-11 text-2xl" />
               <span className="max-w-72 truncate">{entry.displayName}</span>
               <span className="text-stage-muted tabular-nums">{formatNumber(entry.score)}</span>
             </li>

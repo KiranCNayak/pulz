@@ -1,29 +1,16 @@
 import { prisma } from "../db/client.js";
 import { env } from "../config/env.js";
+import { rankStandings } from "../domain/standings.js";
 import type { GameSession, PodiumEntry, ResultsPayload } from "../types/session.js";
 
 export class ResultsNotFoundError extends Error {}
 
-/** Ranks all participants by score desc, using standard competition
- * ranking (ties share a rank; the next distinct score's rank accounts for
- * the tied group's size, e.g. 1,1,3 not 1,1,2) — PRD §5/§6 don't specify
- * tie-breaking beyond "sum of points," so this is the least-surprising
- * default. */
+/** Ranks everyone who played — players, plus anyone with answers on record
+ * — leaving out spectators who never got to play. */
 function rankParticipants(session: GameSession): PodiumEntry[] {
-  const sorted = [...session.participants.values()]
-    .filter((p) => p.role === "PLAYER" || p.answers.size > 0) // exclude never-played spectators
-    .sort((a, b) => b.score - a.score);
-
-  const ranked: PodiumEntry[] = [];
-  let lastScore: number | undefined;
-  let lastRank = 0;
-  sorted.forEach((p, index) => {
-    const rank = p.score === lastScore ? lastRank : index + 1;
-    ranked.push({ participantId: p.id, displayName: p.displayName, score: p.score, rank });
-    lastScore = p.score;
-    lastRank = rank;
-  });
-  return ranked;
+  return rankStandings(
+    [...session.participants.values()].filter((p) => p.role === "PLAYER" || p.answers.size > 0),
+  );
 }
 
 function buildPayload(session: GameSession): ResultsPayload {

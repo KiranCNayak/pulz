@@ -68,6 +68,35 @@ describe("writeResultsSnapshot", () => {
     expect(payload.ranks[0].displayName).toBe("Alex");
   });
 
+  it("counts each player's correct answers out of the answers they gave (Decision #72)", async () => {
+    const session = makeSession();
+    const answer = (questionId: string, isCorrect: boolean) => ({
+      questionId,
+      selectedOptionId: `${questionId}-a`,
+      serverReceivedAt: 0,
+      timeTakenMs: 0,
+      isCorrect,
+      points: isCorrect ? 900 : 0,
+    });
+    const original = createParticipant(session, "Alex", "PLAYER");
+    for (const [i, correct] of [true, true, false, true].entries()) original.answers.set(`q${i}`, answer(`q${i}`, correct));
+    original.score = 2700;
+    // Joined mid-game and was let in for the last two questions only.
+    const lateJoiner = createParticipant(session, "Sam", "SPECTATOR");
+    lateJoiner.role = "PLAYER";
+    lateJoiner.answers.set("q2", answer("q2", true));
+    lateJoiner.answers.set("q3", answer("q3", false));
+    lateJoiner.score = 900;
+
+    const payload = await writeResultsSnapshot(session);
+
+    expect(payload.ranks.map(({ displayName, correctCount, answeredCount }) => ({ displayName, correctCount, answeredCount }))).toEqual([
+      { displayName: "Alex", correctCount: 3, answeredCount: 4 },
+      { displayName: "Sam", correctCount: 1, answeredCount: 2 },
+    ]);
+    expect(payload.podium[0].avatar).toEqual(original.avatar);
+  });
+
   it("puts only the top 3 in the podium, with everyone in ranks", async () => {
     const session = makeSession();
     for (let i = 0; i < 5; i++) {

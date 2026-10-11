@@ -8,6 +8,13 @@ export type PromotionStatus = "NONE" | "REQUESTED" | "APPROVED" | "DENIED";
 export type SessionStatus = "LOBBY" | "IN_PROGRESS" | "ENDED";
 export type QuestionPhase = "ACTIVE" | "LOCKED";
 
+/** Emoji on a coloured circle, picked when joining (Decision #74). Both
+ * values come from the allowlists in domain/constants.ts. */
+export interface Avatar {
+  emoji: string;
+  color: string;
+}
+
 /** A quiz question/option snapshotted at session-creation time (DESIGN.md
  * §7 note by analogy — a session must not change shape if the Creator
  * edits the quiz mid-game). */
@@ -21,6 +28,7 @@ export interface SnapshotQuestion {
   id: string;
   text: string;
   mediaUrl: string | null;
+  imageId: string | null; // uploaded question image (Decision #75)
   timeLimitSeconds: number;
   options: SnapshotOption[];
 }
@@ -38,6 +46,7 @@ export interface Participant {
   id: string;
   token: string;
   displayName: string;
+  avatar: Avatar;
   role: ParticipantRole;
   connected: boolean;
   socketId?: string;
@@ -88,8 +97,13 @@ export interface GameSession {
 export interface PodiumEntry {
   participantId: string;
   displayName: string;
+  avatar: Avatar;
   score: number;
   rank: number;
+  // "5 of 8 correct" (Decision #72): answers given, not questions shown, so
+  // a mid-game joiner is judged on the questions they actually played.
+  correctCount: number;
+  answeredCount: number;
 }
 
 export interface ResultsPayload {

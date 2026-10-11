@@ -50,7 +50,10 @@ to an MVP that is cheap to run and simple to operate.
 1. Creator signs up/logs in.
 2. Creates a quiz: title + ordered list of questions.
 3. Each question: text, 2–4 answer options, exactly one correct answer,
-   time limit (default 20s, configurable 5–120s per question).
+   time limit (default 20s, configurable 5–120s per question), and
+   optionally **one image** (JPEG/PNG/WebP/GIF, up to 5 MB) shown with the
+   question on the Display and Host screens (Decision #75). Images as
+   answer options are not offered yet (§10).
 4. Can edit/reorder/delete questions and quizzes.
 
 ### 4.2 Hosting a game (Host)
@@ -60,7 +63,8 @@ to an MVP that is cheap to run and simple to operate.
    - a **6-character alphanumeric join code** (what players type)
 3. Host sees two synced views:
    - **Controller view** — interactive: advance/skip/end question, see
-     incoming spectator promotion requests, see detailed live standings.
+     incoming join requests from mid-game joiners, see detailed live
+     standings.
    - **Display view** — cast-friendly, read-only, no controls, large
      text/high contrast, meant to be projected/cast to a shared screen.
      Shows the current question, live answer-count ticker, and leaderboard
@@ -69,16 +73,20 @@ to an MVP that is cheap to run and simple to operate.
    a podium screen.
 
 ### 4.3 Joining and playing (Player / Spectator)
-1. Player opens the join page, enters the 6-char join code, then a display
-   name (no account).
+1. Player opens the join page, enters the 6-char join code, a display
+   name (no account), and picks an **avatar**: one of 8 colours and one of
+   20 emoji (Decision #74). It's shown next to their name in the lobby,
+   leaderboards, podium and results.
 2. **Before game start:** joiner becomes a **Player**.
 3. **After game start:** joiner becomes a **Spectator** — same screen layout
    as a player (sees the live question, the color/shape options) but answer
    controls are disabled.
-4. A Spectator can tap "Request to join as player." The request appears in
-   the Host's Controller view; the Host approves or denies each request
-   individually. On approval, the Spectator becomes a Player from that point
-   forward — no retroactive points for questions missed while spectating.
+4. Joining mid-game **is** the request to play (Decision #73): there's no
+   button to press. The request appears in the Host's Controller view at
+   once; the Host approves or denies each request individually. On
+   approval, the Spectator becomes a Player from that point forward — no
+   retroactive points for questions missed while spectating. Only after a
+   denial does the joiner get an "Ask again" button.
 5. Player answers land on a color/shape-only button grid, synced to the
    question shown on the Host's Display / their own screen.
 6. After each question, Player sees: correct/incorrect, points earned, and
@@ -87,6 +95,9 @@ to an MVP that is cheap to run and simple to operate.
 
 ### 4.4 End of game
 1. Podium screen: top 3 (gold/silver/bronze) with animation + confetti.
+   The confetti keeps raining and the winner's avatar dances (Decision #76).
+   The winner's own phone celebrates the same way, with a trophy and
+   "You won!".
 2. Results page: ranks 4–10 shown alongside the podium on the first page;
    ranks 11+ paginated.
 3. A results snapshot is persisted with a **configurable TTL (default 24h)**,
@@ -154,6 +165,11 @@ Network latency still counts as part of a player's time, as it always has.
 - **End-of-game podium:** top 3 only, gold/silver/bronze, with
   animation/confetti.
 - **Results page:** ranks 4–10 on the first page; 11+ paginated.
+- **Correct answers (Decision #72):** the end-of-game podium, the Host's
+  final standings and the results page show each player's correct answers
+  out of the answers they gave ("5 of 8 correct"). It counts answers given,
+  not questions shown, so a player who joined mid-game and answered 6 shows
+  "4 of 6"; a question left unanswered isn't counted.
 
 ## 7. Platform Support
 
@@ -204,7 +220,10 @@ over-punishes. Requirements, mechanism detailed in `ARCHITECTURE.md` §11:
 ## 10. Nice-to-Have (Post-MVP)
 
 - True/false, poll, type-answer, reorder/puzzle, word-cloud question types
-- Media in questions (image/video/audio)
+- Video/audio in questions, and images as answer options (one image per
+  question shipped with Decision #75)
+- A bigger avatar set, or custom avatars (v1 is 8 colours × 20 emoji,
+  Decision #74)
 - Team mode; async "challenge" (self-paced) mode
 - Public quiz library, duplication/remixing, ratings/favorites
 - Streak bonuses, bonus questions, custom themes/branding

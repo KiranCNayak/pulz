@@ -64,12 +64,16 @@ test('full game flow: create, host, play, and view results', async ({ browser })
   await hostPage.getByRole('button', { name: 'Next' }).click()
   await expect(hostPage.getByText('Game ended.')).toBeVisible()
   await expect(displayPage.getByText('Game over!')).toBeVisible()
+  // Correct answers out of answers given (Decision #72).
+  await expect(displayPage.getByText('1 of 1 correct')).toBeVisible()
 
-  // PlayPage auto-navigates to /results/:sessionId on game:ended.
+  // PlayPage auto-navigates to /results/:sessionId on game:ended. The only
+  // player won, so their own results page celebrates (Decision #76).
   await expect(playerPage).toHaveURL(/\/results\/.+/)
-  await expect(playerPage.getByText('Final Results')).toBeVisible()
+  await expect(playerPage.getByRole('heading', { name: 'You won!' })).toBeVisible()
   await expect(playerPage.getByText(playerName)).toBeVisible()
   await expect(playerPage.getByText(`${pointsEarned} pts`)).toBeVisible()
+  await expect(playerPage.getByText('1 of 1 correct')).toBeVisible()
 
   await creatorContext.close()
   await hostContext.close()

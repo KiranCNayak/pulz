@@ -16,6 +16,18 @@ export function setParticipantToken(token: string): void {
   localStorage.setItem(PARTICIPANT_TOKEN_KEY, token)
 }
 
+// Who this device last played as, so the results page can tell whether the
+// winner is the one looking at it (Decision #76).
+const PARTICIPANT_ID_KEY = 'pulz:participantId'
+
+export function getParticipantId(): string | null {
+  return localStorage.getItem(PARTICIPANT_ID_KEY)
+}
+
+export function setParticipantId(id: string): void {
+  localStorage.setItem(PARTICIPANT_ID_KEY, id)
+}
+
 /**
  * Shared connect/reconnect hook (Decision #42, ARCHITECTURE.md §6) for
  * Host/Display/Play views. Owns the socket connection; `onConnect` (if

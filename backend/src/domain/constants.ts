@@ -81,3 +81,29 @@ export const SOCKET_MESSAGE_RATE_WINDOW_MS = 10_000;
  * question (240ms on 120s), so near-simultaneous answers still separate. */
 export const SCORE_MAX_POINTS = 1000;
 export const SCORE_MIN_POINTS = 500;
+
+// --- Player avatars (Decision #74) ---
+
+// A deliberately small v1 set: the client picks one of each, and the server
+// only ever stores values from these lists (anything else falls back to a
+// random pick), so a hand-crafted join can't put arbitrary text on the
+// projector. Colours are keys, not hex — the frontend owns how they look
+// (frontend/src/lib/avatars.ts mirrors both lists).
+export const AVATAR_EMOJIS = [
+  "🦊", "🐼", "🐸", "🐙", "🦁", "🐯", "🐨", "🐵", "🦄", "🐶",
+  "🐱", "🐧", "🦉", "🐢", "🐝", "🦖", "🚀", "⚡", "🍕", "🎸",
+] as const;
+export const AVATAR_COLORS = ["red", "orange", "gold", "green", "teal", "blue", "pink", "slate"] as const;
+
+// --- Question images (Decision #75) ---
+
+/** Per-file upload cap (owner's choice), enforced as the route's body limit. */
+export const QUESTION_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+/** Total image storage per Creator. Postgres holds the bytes (Neon's free
+ * plan is 0.5 GB), so one account can't fill it alone; the registration
+ * limit above is what bounds many accounts. */
+export const CREATOR_IMAGE_QUOTA_BYTES = 100 * 1024 * 1024;
+/** Uploaded images no question points at (removed, replaced, or never
+ * saved) are swept once they're this old — long enough to outlast an
+ * editing session that uploads before it saves. */
+export const ORPHAN_IMAGE_MAX_AGE_MS = 24 * 60 * 60_000;

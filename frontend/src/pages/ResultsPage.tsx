@@ -3,9 +3,12 @@ import { ChevronLeft, ChevronRight, CircleAlert, Hourglass, Trophy } from 'lucid
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
+import { Avatar } from '@/components/Avatar'
+import { Confetti } from '@/components/Confetti'
 import { Podium } from '@/components/Podium'
 import { Button } from '@/components/ui/button'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { getParticipantId } from '@/hooks/useGameSocket'
 import { formatNumber } from '@/lib/format'
 import { fetchResults, ResultsNotFoundError } from '@/lib/resultsApi'
 
@@ -16,6 +19,7 @@ export function ResultsPage() {
   useDocumentTitle('Final results')
   const { sessionId } = useParams<{ sessionId: string }>()
   const [page, setPage] = useState(1)
+  const [myParticipantId] = useState(getParticipantId)
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['results', sessionId, page],
@@ -58,13 +62,24 @@ export function ResultsPage() {
       </div>
     )
   } else {
+    // Ties share 1st, so more than one phone can be celebrating.
+    const iWon = data.podium.some((entry) => entry.rank === 1 && entry.participantId === myParticipantId)
     content = (
       <div className="mx-auto max-w-2xl px-4 pt-12 pb-16 sm:px-6">
+        {iWon ? <Confetti /> : null}
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="grid size-12 place-items-center rounded-2xl bg-medal-gold/25 text-[#9a7212] dark:text-medal-gold">
-            <Trophy aria-hidden="true" className="size-6" />
-          </span>
-          <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Final results</h1>
+          {iWon ? (
+            <span className="mb-2 grid size-24 place-items-center rounded-full bg-medal-gold text-[#0e1118] shadow-[inset_0_2px_0_rgb(255_255_255/0.5)] motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-500">
+              <Trophy aria-hidden="true" className="size-12" />
+            </span>
+          ) : (
+            <span className="grid size-12 place-items-center rounded-2xl bg-medal-gold/25 text-[#9a7212] dark:text-medal-gold">
+              <Trophy aria-hidden="true" className="size-6" />
+            </span>
+          )}
+          <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
+            {iWon ? 'You won!' : 'Final results'}
+          </h1>
           <p className="text-muted-foreground">
             {data.totalParticipants} participant{data.totalParticipants === 1 ? '' : 's'}
           </p>
@@ -76,6 +91,10 @@ export function ResultsPage() {
               rank: entry.rank,
               name: entry.displayName,
               score: entry.score,
+              avatar: entry.avatar,
+              correctCount: entry.correctCount,
+              answeredCount: entry.answeredCount,
+              celebrate: entry.rank === 1 && entry.participantId === myParticipantId,
             }))}
           />
         </div>
@@ -87,6 +106,7 @@ export function ResultsPage() {
                 <tr className="border-b border-border text-xs text-muted-foreground">
                   <th scope="col" className="w-20 px-5 py-3 font-semibold">Rank</th>
                   <th scope="col" className="px-5 py-3 font-semibold">Name</th>
+                  <th scope="col" className="px-5 py-3 text-right font-semibold">Correct</th>
                   <th scope="col" className="px-5 py-3 text-right font-semibold">Score</th>
                 </tr>
               </thead>
@@ -94,7 +114,15 @@ export function ResultsPage() {
                 {data.ranks.map((entry) => (
                   <tr key={entry.participantId} className="transition-colors duration-150 hover:bg-muted/50">
                     <td className="px-5 py-3.5 font-medium text-muted-foreground tabular-nums">#{entry.rank}</td>
-                    <td className="max-w-0 truncate px-5 py-3.5 font-semibold">{entry.displayName}</td>
+                    <td className="max-w-0 px-5 py-3.5 font-semibold">
+                      <span className="flex items-center gap-2.5">
+                        <Avatar avatar={entry.avatar} name={entry.displayName} className="size-7 text-base" />
+                        <span className="min-w-0 truncate">{entry.displayName}</span>
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right whitespace-nowrap text-muted-foreground tabular-nums">
+                      {entry.answeredCount !== undefined ? `${entry.correctCount} of ${entry.answeredCount}` : null}
+                    </td>
                     <td className="px-5 py-3.5 text-right font-display font-bold tabular-nums">{formatNumber(entry.score)}</td>
                   </tr>
                 ))}

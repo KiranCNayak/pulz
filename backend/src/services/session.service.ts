@@ -40,6 +40,7 @@ export async function createGameSession(
     id: q.id,
     text: q.text,
     mediaUrl: q.mediaUrl,
+    imageId: q.imageId,
     timeLimitSeconds: q.timeLimitSeconds,
     options: q.options.map((o) => ({ id: o.id, text: o.text, isCorrect: o.isCorrect })),
   }));

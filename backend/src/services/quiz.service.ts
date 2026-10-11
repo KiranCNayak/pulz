@@ -5,6 +5,7 @@ import {
   QUESTION_TIME_LIMIT_DEFAULT_SECONDS,
   clampTimeLimitSeconds,
 } from "../domain/constants.js";
+import { assertImageOwnedBy } from "./image.service.js";
 import type { CreateQuizInput, QuestionInput, UpdateQuizInput } from "../types/quiz.js";
 
 export class ValidationError extends Error {}
@@ -31,12 +32,22 @@ function assertValidQuestion(question: QuestionInput): void {
   }
 }
 
+/** Every image a question points at must be the same Creator's upload
+ * (Decision #75). Checked here rather than by the FK alone, which would
+ * accept anyone's image id. */
+async function assertImagesOwned(creatorId: string, questions: Partial<QuestionInput>[]): Promise<void> {
+  for (const question of questions) {
+    if (question.imageId) await assertImageOwnedBy(creatorId, question.imageId);
+  }
+}
+
 function toQuestionCreateData(question: QuestionInput, order: number) {
   assertValidQuestion(question);
   return {
     order,
     text: question.text,
     mediaUrl: question.mediaUrl ?? null,
+    imageId: question.imageId ?? null,
     timeLimitSeconds: clampTimeLimitSeconds(
       question.timeLimitSeconds ?? QUESTION_TIME_LIMIT_DEFAULT_SECONDS,
     ),
@@ -55,6 +66,7 @@ const quizWithQuestions = {
 
 export async function createQuiz(creatorId: string, input: CreateQuizInput) {
   input.questions.forEach(assertValidQuestion);
+  await assertImagesOwned(creatorId, input.questions);
 
   return prisma.quiz.create({
     data: {
@@ -105,6 +117,7 @@ export async function deleteQuiz(creatorId: string, quizId: string): Promise<voi
 export async function addQuestion(creatorId: string, quizId: string, input: QuestionInput) {
   const quiz = await getQuizForCreator(creatorId, quizId);
   const nextOrder = quiz.questions.length;
+  await assertImagesOwned(creatorId, [input]);
   return prisma.question.create({
     data: { quizId, ...toQuestionCreateData(input, nextOrder) },
     include: { options: true },
@@ -126,10 +139,12 @@ export async function updateQuestion(
   const merged: QuestionInput = {
     text: input.text ?? existing.text,
     mediaUrl: input.mediaUrl !== undefined ? input.mediaUrl : existing.mediaUrl,
+    imageId: input.imageId !== undefined ? input.imageId : existing.imageId,
     timeLimitSeconds: input.timeLimitSeconds ?? existing.timeLimitSeconds,
     options: input.options ?? existing.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
   };
   assertValidQuestion(merged);
+  await assertImagesOwned(creatorId, [input]);
 
   return prisma.$transaction(async (tx) => {
     if (input.options) {
@@ -140,6 +155,7 @@ export async function updateQuestion(
       data: {
         text: merged.text,
         mediaUrl: merged.mediaUrl ?? null,
+        imageId: merged.imageId ?? null,
         timeLimitSeconds: clampTimeLimitSeconds(merged.timeLimitSeconds!),
         ...(input.options
           ? { options: { create: merged.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) } }

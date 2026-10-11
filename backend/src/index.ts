@@ -3,6 +3,7 @@ import { shutdownTelemetry } from "./observability/telemetry.js";
 import { buildApp } from "./app.js";
 import { env } from "./config/env.js";
 import { disconnectDb } from "./db/client.js";
+import { startImageCleanupSweep } from "./db/imageCleanup.js";
 import { startResultsCleanupSweep } from "./db/resultsCleanup.js";
 import { createSocketServer } from "./sockets/index.js";
 
@@ -16,12 +17,14 @@ async function main(): Promise<void> {
   createSocketServer(app.server);
 
   const cleanupTimer = startResultsCleanupSweep(app.log);
+  const imageCleanupTimer = startImageCleanupSweep(app.log);
 
   await app.listen({ port: env.port, host: env.host });
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, "shutting down");
     clearInterval(cleanupTimer);
+    clearInterval(imageCleanupTimer);
     await app.close();
     await disconnectDb();
     await shutdownTelemetry();

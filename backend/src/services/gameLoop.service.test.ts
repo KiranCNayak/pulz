@@ -48,6 +48,7 @@ function makeQuestion(id: string, correctOptionId: string, timeLimitSeconds = 20
     id,
     text: `Question ${id}`,
     mediaUrl: null,
+    imageId: null,
     timeLimitSeconds,
     options: [
       { id: `${id}-a`, text: "A", isCorrect: correctOptionId === `${id}-a` },

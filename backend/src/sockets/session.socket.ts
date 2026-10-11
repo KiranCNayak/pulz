@@ -13,7 +13,13 @@ import { getSessionById, getSessionByJoinCode, resolveParticipant } from "../dom
 import { joinAttempts, rateLimited } from "../observability/metrics.js";
 import * as gameLoop from "../services/gameLoop.service.js";
 import { controllerRoom, displayRoom, baseRoom } from "../services/gameLoop.service.js";
-import { createParticipant, lobbyParticipantList, roleForJoin, validateDisplayName } from "../services/join.service.js";
+import {
+  createParticipant,
+  lobbyParticipantList,
+  roleForJoin,
+  validateAvatar,
+  validateDisplayName,
+} from "../services/join.service.js";
 import type { GameSession, Participant } from "../types/session.js";
 
 // Realtime event names implement the catalogue in DESIGN.md §3, plus
@@ -49,6 +55,19 @@ export function socketRateKey(socket: Socket): string {
   return compositeRateKey(ip, socket.handshake.auth?.clientId);
 }
 
+/** The `promotion:incoming` payload — also how pending requests are
+ * listed in the host snapshot, so a refreshed Host doesn't lose them. */
+function promotionRequest(participant: Participant) {
+  return { participantId: participant.id, displayName: participant.displayName, avatar: participant.avatar };
+}
+
+/** Asks the host to let a spectator play (Decision #73: sent automatically
+ * when someone joins mid-game, or again after a "not yet"). */
+function requestPromotion(io: Server, session: GameSession, participant: Participant): void {
+  participant.promotionStatus = "REQUESTED";
+  io.to(controllerRoom(session.id)).emit("promotion:incoming", promotionRequest(participant));
+}
+
 function hostSnapshot(session: GameSession) {
   return {
     sessionId: session.id,
@@ -57,6 +76,9 @@ function hostSnapshot(session: GameSession) {
     questionCount: session.questions.length,
     currentQuestionIndex: session.currentQuestionIndex,
     participants: lobbyParticipantList(session),
+    pendingPromotions: [...session.participants.values()]
+      .filter((p) => p.role === "SPECTATOR" && p.promotionStatus === "REQUESTED")
+      .map(promotionRequest),
     live: gameLoop.buildScreenSnapshot(session),
   };
 }
@@ -100,7 +122,7 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
    */
   socket.on(
     "join:request",
-    (payload: { joinCode?: string; displayName?: string; participantToken?: string }) => {
+    (payload: { joinCode?: string; displayName?: string; avatar?: unknown; participantToken?: string }) => {
       const joinCode = (payload?.joinCode ?? "").trim().toUpperCase();
       if (!joinCode) {
         joinAttempts.add(1, { outcome: "rejected" });
@@ -144,6 +166,8 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
             participantId: existing.id,
             participantToken: existing.token,
             role: existing.role,
+            avatar: existing.avatar,
+            promotionStatus: existing.promotionStatus,
             resumed: true,
             state: gameLoop.buildResumeSnapshot(session, existing),
           });
@@ -164,14 +188,24 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
         return;
       }
 
-      const participant = createParticipant(session, displayName, role);
+      const participant = createParticipant(session, displayName, role, validateAvatar(payload.avatar));
       participant.socketId = socket.id;
       socketContexts.set(socket.id, { sessionId: session.id, role: "PARTICIPANT", participantId: participant.id });
       socket.join(baseRoom(session.id));
       joinCodeLockout.recordSuccess(joinCode);
       joinAttempts.add(1, { outcome: "accepted" });
 
-      socket.emit("join:accepted", { participantId: participant.id, participantToken: participant.token, role });
+      // Joining mid-game is itself the request to play (Decision #73) — the
+      // host sees it straight away; the joiner watches until approved.
+      if (role === "SPECTATOR") requestPromotion(io, session, participant);
+
+      socket.emit("join:accepted", {
+        participantId: participant.id,
+        participantToken: participant.token,
+        role,
+        avatar: participant.avatar,
+        promotionStatus: participant.promotionStatus,
+      });
       io.to(baseRoom(session.id)).emit("session:lobby_update", { participants: lobbyParticipantList(session) });
     },
   );
@@ -236,12 +270,11 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
   socket.on("promotion:request", () => {
     const { session, participant } = requireParticipant(socket);
     if (!session || !participant) return;
-    if (participant.role !== "SPECTATOR") return; // already a Player, or invalid — no-op
-    participant.promotionStatus = "REQUESTED";
-    io.to(controllerRoom(session.id)).emit("promotion:incoming", {
-      participantId: participant.id,
-      displayName: participant.displayName,
-    });
+    // Already a Player, or already waiting on the host — no-op, so the
+    // host's queue never shows the same person twice. Joining mid-game asks
+    // automatically; this event is only for asking again after a "not yet".
+    if (participant.role !== "SPECTATOR" || participant.promotionStatus === "REQUESTED") return;
+    requestPromotion(io, session, participant);
   });
 
   socket.on("promotion:decision", (payload: { participantId?: string; approve?: boolean }) => {

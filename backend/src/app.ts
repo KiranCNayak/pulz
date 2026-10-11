@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { env } from "./config/env.js";
 import { authRoutes } from "./routes/auth.route.js";
 import { healthRoutes } from "./routes/health.route.js";
+import { imageRoutes } from "./routes/image.route.js";
 import { quizRoutes } from "./routes/quiz.route.js";
 import { sessionRoutes } from "./routes/session.route.js";
 
@@ -21,6 +22,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(authRoutes);
   await app.register(quizRoutes);
   await app.register(sessionRoutes);
+  await app.register(imageRoutes);
 
   return app;
 }

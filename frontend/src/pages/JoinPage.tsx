@@ -4,11 +4,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AnswerShape } from '@/components/AnswerShape'
 import { ANSWER_SLOT_STYLES } from '@/components/answerStyles'
 import { AppShell } from '@/components/AppShell'
+import { AvatarPicker } from '@/components/AvatarPicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { setParticipantToken } from '@/hooks/useGameSocket'
+import { getSavedAvatar, randomAvatar, saveAvatar, type Avatar } from '@/lib/avatars'
 import { getSocket } from '@/lib/socket'
 
 const JOIN_CODE_KEY = 'pulz:joinCode'
@@ -30,6 +32,7 @@ export function JoinPage() {
   const [searchParams] = useSearchParams()
   const [joinCode, setJoinCode] = useState(() => (searchParams.get('code') ?? '').toUpperCase().slice(0, 6))
   const [displayName, setDisplayName] = useState('')
+  const [avatar, setAvatar] = useState<Avatar>(() => getSavedAvatar() ?? randomAvatar())
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -49,6 +52,7 @@ export function JoinPage() {
       setParticipantToken(payload.participantToken)
       localStorage.setItem(JOIN_CODE_KEY, code)
       localStorage.setItem(DISPLAY_NAME_KEY, name)
+      saveAvatar(avatar)
       navigate(`/play/${code}`)
     }
 
@@ -77,7 +81,7 @@ export function JoinPage() {
     socket.on('connection:error', onError)
     socket.on('disconnect', onServerDisconnect)
     socket.connect()
-    socket.emit('join:request', { joinCode: code, displayName: name })
+    socket.emit('join:request', { joinCode: code, displayName: name, avatar })
   }
 
   return (
@@ -91,7 +95,7 @@ export function JoinPage() {
           ))}
         </div>
         <h1 className="font-display text-4xl font-extrabold tracking-tight">Join a game</h1>
-        <p className="mt-2 text-muted-foreground">Enter the PIN from the big screen, then pick a name.</p>
+        <p className="mt-2 text-muted-foreground">Enter the PIN from the big screen, then pick a name and an avatar.</p>
 
         <form
           className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-card p-6 shadow-soft"
@@ -130,6 +134,7 @@ export function JoinPage() {
               Shown on the leaderboard. Up to 24 characters.
             </p>
           </div>
+          <AvatarPicker value={avatar} onChange={setAvatar} />
           <div aria-live="polite">
             {error ? (
               <p role="alert" className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2.5 text-sm font-medium text-destructive">

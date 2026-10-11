@@ -36,6 +36,7 @@ function makeQuestion(id: string, correctOptionId: string): SnapshotQuestion {
     id,
     text: `Question ${id}`,
     mediaUrl: null,
+    imageId: null,
     timeLimitSeconds: 20,
     options: [
       { id: `${id}-a`, text: "A", isCorrect: correctOptionId === `${id}-a` },
@@ -173,6 +174,57 @@ describe("disconnect guard (session.socket.ts)", () => {
     const answerResult = await result;
     expect(answerResult.isCorrect).toBe(true);
     expect(answerResult.pointsEarned).toBeGreaterThan(0);
+  });
+});
+
+describe("joining mid-game asks the host automatically (Decision #73)", () => {
+  it("sends the host a request with no tap from the joiner, and keeps it across a host refresh", async () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const host = await connect();
+    host.emit("host:auth", { sessionId: session.id, hostToken: session.hostToken });
+    await waitFor(host, "host:auth_ok");
+    host.emit("game:start");
+
+    const incoming = waitFor<{ participantId: string; displayName: string; avatar: unknown }>(host, "promotion:incoming");
+    const late = await connect();
+    late.emit("join:request", { joinCode: session.joinCode, displayName: "Late", avatar: { emoji: "🐸", color: "green" } });
+    const joined = await waitFor<{ participantId: string; role: string; avatar: unknown; promotionStatus: string }>(
+      late,
+      "join:accepted",
+    );
+
+    expect(joined).toMatchObject({ role: "SPECTATOR", avatar: { emoji: "🐸", color: "green" }, promotionStatus: "REQUESTED" });
+    expect(await incoming).toEqual({
+      participantId: joined.participantId,
+      displayName: "Late",
+      avatar: { emoji: "🐸", color: "green" },
+    });
+
+    // Asking again while still pending doesn't queue a duplicate.
+    let duplicates = 0;
+    host.on("promotion:incoming", () => duplicates++);
+    late.emit("promotion:request");
+
+    // A refreshed host gets the still-pending request back.
+    const refreshed = await connect();
+    refreshed.emit("host:auth", { sessionId: session.id, hostToken: session.hostToken });
+    const snapshot = await waitFor<{ pendingPromotions: Array<{ participantId: string }> }>(refreshed, "host:auth_ok");
+    expect(snapshot.pendingPromotions.map((r) => r.participantId)).toEqual([joined.participantId]);
+    expect(duplicates).toBe(0);
+
+    // Once approved, they're a player and no longer pending.
+    const promoted = waitFor<{ approved: boolean }>(late, "promotion:result");
+    refreshed.emit("promotion:decision", { participantId: joined.participantId, approve: true });
+    expect(await promoted).toEqual({ approved: true });
+    expect(session.participants.get(joined.participantId)?.role).toBe("PLAYER");
+  });
+
+  it("doesn't ask on behalf of someone who joined before the start", async () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const player = await connect();
+    player.emit("join:request", { joinCode: session.joinCode, displayName: "Early" });
+    const joined = await waitFor<{ role: string; promotionStatus: string }>(player, "join:accepted");
+    expect(joined).toMatchObject({ role: "PLAYER", promotionStatus: "NONE" });
   });
 });
 

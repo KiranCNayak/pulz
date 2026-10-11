@@ -231,3 +231,33 @@ describe("per-connection message cap (ARCHITECTURE.md §11)", () => {
     expect(await dropped).toBe("io server disconnect");
   });
 });
+
+describe("end of game when the results write fails", () => {
+  it("tells the host instead of leaving an unhandled rejection", async () => {
+    const session = makeSession([makeQuestion("q1", "q1-a")]);
+    const player = await connect();
+    player.emit("join:request", { joinCode: session.joinCode, displayName: "Alex" });
+    await waitFor(player, "join:accepted");
+
+    const host = await connect();
+    host.emit("host:auth", { sessionId: session.id, hostToken: session.hostToken });
+    await waitFor(host, "host:auth_ok");
+    const broadcast = waitFor<{ questionId: string }>(player, "question:broadcast");
+    host.emit("game:start");
+    const { questionId } = await broadcast;
+    const locked = waitFor(host, "question:locked");
+    player.emit("answer:submit", { questionId, selectedOptionId: "q1-a" });
+    await locked;
+
+    // Vitest fails the run on any unhandled rejection, so reaching the
+    // assertion with no such failure is the regression check.
+    writeResultsSnapshotMock.mockRejectedValueOnce(new Error("database unavailable"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const hostError = waitFor<{ error: string }>(host, "host:error");
+    host.emit("host:next_question");
+
+    expect((await hostError).error).toMatch(/results couldn't be saved/);
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+});

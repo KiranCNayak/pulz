@@ -233,3 +233,49 @@ evidence that the lighter measures above are insufficient.
 | Auth | Email/password (or minimal JWT) for Creators only |
 | Edge/DDoS layer | Cloudflare free tier (in front of frontend + backend) |
 | Abuse rate limiting | In-process composite-key (IP + client id) token bucket, no external service |
+| Observability | OpenTelemetry (backend) + Grafana Faro (frontend) → Grafana Cloud free tier (§13) |
+
+## 13. Observability
+
+Requirement: know when Pulz is down or misbehaving, and why, without
+paying for it or running another service. Grafana Cloud's free tier (no
+card; 10k metric series, 50 GB each of logs and traces, 100k synthetic
+checks a month, 14-day retention) covers that many times over at MVP
+scale. Picked over New Relic, Sentry + Better Stack, and Axiom (Decision
+#70). The setup runbook is `docs/OBSERVABILITY.md`.
+
+- **Vendor-neutral by construction.** The backend speaks only standard
+  OpenTelemetry over OTLP (`backend/src/observability/telemetry.ts`),
+  configured entirely by the standard `OTEL_*` env vars, so moving to
+  another OTLP backend is an env change, not a code change. Off when
+  `OTEL_EXPORTER_OTLP_ENDPOINT` is unset (tests, plain `make up`).
+- **In-process, no agent or collector.** Same "one process, no standing
+  infra" rule as §3 and §11: the SDK in the Node process pushes metrics
+  (every 60s), traces and pino logs directly to Grafana Cloud. Pushing is
+  outbound, so it doesn't keep a Fly machine from auto-stopping. Buffers
+  are flushed on SIGTERM.
+- **What's instrumented automatically:** HTTP + Fastify routes, Socket.IO
+  events (spans renamed per event, e.g. `receive answer:submit`), pino logs
+  (with trace ids), and Node runtime (event loop delay/utilization, heap,
+  GC). Prisma isn't traced yet: `@prisma/instrumentation` v5 needs the older
+  OTel SDK line, so it's deferred to the Prisma 6 upgrade.
+- **Game metrics the auto-instrumentation can't see**
+  (`backend/src/observability/metrics.ts`): live sessions by status,
+  connected players, open sockets, games started/ended, answers (correct or
+  not), questions closed by reason, join outcomes, and rejections per
+  in-process limiter. Attribute values come only from fixed server-defined
+  sets — never session ids, join codes or client input — so series count
+  stays bounded (~200 locally, against a 10k budget). Counters start at 0 so
+  the first event after a restart isn't lost to `rate()`.
+- **Frontend:** Grafana Faro (JS errors, Web Vitals, sessions, and fetch
+  spans that propagate `traceparent` to the API, so one trace spans browser
+  → backend). Off unless `VITE_FARO_URL` is set at build time, and then
+  loaded as a lazy chunk; unset, it's stripped from the bundle entirely.
+- **Uptime:** a Grafana Synthetic Monitoring HTTP check on `/health`. That
+  endpoint deliberately doesn't touch Postgres, so checks don't wake Neon.
+  They do keep the Fly machine awake, which is the price of uptime
+  monitoring (runbook covers the trade-off).
+- **Locally:** `make observe` adds Grafana's all-in-one `otel-lgtm` image
+  to the Docker stack with the same dashboard provisioned
+  (`observability/grafana/`), so the whole pipeline can be checked
+  without a Grafana Cloud account.

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { env } from "../config/env.js";
 import { REGISTER_IP_RATE_WINDOW_MS } from "../domain/constants.js";
 import { SlidingWindowLimiter } from "../domain/rateLimiter.js";
+import { rateLimited } from "../observability/metrics.js";
 import { extractBearerToken, registerCreator, resolveCreatorId } from "../services/auth.service.js";
 
 // See Decision #38: registration is the one anonymous-by-construction
@@ -13,6 +14,7 @@ const registerLimiter = new SlidingWindowLimiter(env.registerRateLimitPerHour, R
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post("/auth/register", async (request, reply) => {
     if (!registerLimiter.consume(request.ip)) {
+      rateLimited.add(1, { limiter: "register" });
       reply.code(429).send({ error: "Too many registrations from this address — try again later" });
       return;
     }

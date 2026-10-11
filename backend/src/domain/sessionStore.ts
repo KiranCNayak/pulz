@@ -6,7 +6,7 @@
 
 import { randomUUID } from "node:crypto";
 import { generateJoinCode } from "./joinCode.js";
-import type { GameSession, Participant } from "../types/session.js";
+import type { GameSession, Participant, SessionStatus } from "../types/session.js";
 
 const sessionsById = new Map<string, GameSession>();
 const sessionIdByJoinCode = new Map<string, string>();
@@ -49,6 +49,23 @@ export function releaseJoinCode(joinCode: string): void {
 export function resolveParticipant(session: GameSession, token: string): Participant | undefined {
   const participantId = session.participantTokens.get(token);
   return participantId ? session.participants.get(participantId) : undefined;
+}
+
+/** Point-in-time counts for the live-state gauges in
+ * observability/metrics.ts — sampled once per metric export, not per
+ * request, so walking every participant is fine at MVP scale. */
+export function sessionStats(): {
+  sessionsByStatus: Record<SessionStatus, number>;
+  connectedParticipants: number;
+} {
+  const sessionsByStatus: Record<SessionStatus, number> = { LOBBY: 0, IN_PROGRESS: 0, ENDED: 0 };
+  let connectedParticipants = 0;
+  for (const session of sessionsById.values()) {
+    sessionsByStatus[session.status]++;
+    if (session.status === "ENDED") continue;
+    for (const p of session.participants.values()) if (p.connected) connectedParticipants++;
+  }
+  return { sessionsByStatus, connectedParticipants };
 }
 
 /** Fully drop a session from memory (e.g. once its results have also

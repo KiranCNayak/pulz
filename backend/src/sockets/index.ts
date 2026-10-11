@@ -8,6 +8,7 @@ import {
   SOCKET_MESSAGE_RATE_WINDOW_MS,
 } from "../domain/constants.js";
 import { compositeRateKey, SlidingWindowLimiter } from "../domain/rateLimiter.js";
+import { observeLiveState, rateLimited } from "../observability/metrics.js";
 import { registerSessionHandlers } from "./session.socket.js";
 
 /**
@@ -25,6 +26,7 @@ export function createSocketServer(httpServer: HttpServer): SocketIOServer {
       origin: env.corsOrigin.split(",").map((o) => o.trim()),
     },
   });
+  observeLiveState(io);
 
   // New-connection cap per composite key (ARCHITECTURE.md §11 table row
   // 3) — a coarse backstop against connection flooding, ahead of the
@@ -38,6 +40,7 @@ export function createSocketServer(httpServer: HttpServer): SocketIOServer {
   io.on("connection", (socket) => {
     const rateKey = compositeRateKey(socket.handshake.address, socket.handshake.auth?.clientId);
     if (!connectLimiter.consume(rateKey)) {
+      rateLimited.add(1, { limiter: "socket_connect" });
       socket.emit("connection:error", { error: "Too many connections — slow down" });
       socket.disconnect(true);
       return;
@@ -48,6 +51,7 @@ export function createSocketServer(httpServer: HttpServer): SocketIOServer {
     const messageLimiter = new SlidingWindowLimiter(SOCKET_MESSAGE_RATE_LIMIT, SOCKET_MESSAGE_RATE_WINDOW_MS);
     socket.use((_packet, next) => {
       if (messageLimiter.consume(socket.id)) return next();
+      rateLimited.add(1, { limiter: "socket_message" });
       socket.emit("connection:error", { error: "Too many messages — slow down" });
       socket.disconnect(true);
     });

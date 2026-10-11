@@ -6,7 +6,7 @@ APP_URL := http://localhost:5173
 API_URL := http://localhost:3000
 
 .DEFAULT_GOAL := help
-.PHONY: help up down restart logs ps dev install demo test typecheck e2e clean
+.PHONY: help up observe down restart logs ps dev install demo test typecheck e2e clean
 
 help: ## List the available targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[1m%-10s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -27,6 +27,11 @@ up: ## Start Postgres + backend + frontend in Docker and wait until they answer
 	@echo "  Backend:  $(API_URL)"
 	@echo ""
 	@echo "  'make demo' starts a playable game · 'make logs' follows logs · 'make down' stops"
+
+observe: ## Like 'up', plus a local Grafana receiving the backend's telemetry
+	COMPOSE_PROFILES=observability OTEL_EXPORTER_OTLP_ENDPOINT=http://lgtm:4318 $(MAKE) up
+	@echo "  Grafana:  http://localhost:3001  (Dashboards → Pulz → Pulz overview)"
+	@echo "  Metrics arrive once a minute — play a 'make demo' game to fill the panels"
 
 down: ## Stop the Docker stack (keeps the database)
 	$(COMPOSE) down

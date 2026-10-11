@@ -20,6 +20,7 @@ import type { Server } from "socket.io";
 import { clampTimeTakenMs, computePoints } from "../domain/scoring.js";
 import { shuffled } from "../domain/shuffle.js";
 import { releaseJoinCode } from "../domain/sessionStore.js";
+import { answersSubmitted, gamesEnded, gamesStarted, questionsLocked } from "../observability/metrics.js";
 import { writeResultsSnapshot } from "./results.service.js";
 import type {
   ActiveQuestionState,
@@ -110,6 +111,7 @@ export function startGame(io: Server, session: GameSession): { ok: true } | { ok
   session.status = "IN_PROGRESS";
   session.startedAt = Date.now();
   session.currentQuestionIndex = 0;
+  gamesStarted.add(1);
   broadcastQuestion(io, session);
   return { ok: true };
 }
@@ -164,6 +166,7 @@ export function submitAnswer(
   const record: AnswerRecord = { questionId, selectedOptionId, serverReceivedAt: Date.now(), timeTakenMs, isCorrect, points };
   participant.answers.set(questionId, record);
   participant.score += points;
+  answersSubmitted.add(1, { correct: isCorrect });
 
   return { ok: true };
 }
@@ -185,6 +188,7 @@ export function lockQuestion(
   clearTimeout(current.lockTimer);
   current.phase = "LOCKED";
   current.lockReason = reason;
+  questionsLocked.add(1, { reason });
 
   io.to(baseRoom(session.id)).emit("question:locked", { questionId: current.question.id, reason });
   io.to(baseRoom(session.id)).emit("question:reveal", revealPayload(session, current));
@@ -244,6 +248,7 @@ export async function advance(io: Server, session: GameSession): Promise<{ ok: t
   session.current = undefined;
   releaseJoinCode(session.joinCode); // DESIGN.md §1: codes recycle once a session ends
   await writeResultsSnapshot(session);
+  gamesEnded.add(1);
   io.to(baseRoom(session.id)).emit("game:ended", { resultsUrl: `/results/${session.id}` });
   return { ok: true };
 }

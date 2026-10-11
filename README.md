@@ -16,6 +16,8 @@ See:
   palette, typography, components, motion
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — quick-reference log of
   settled decisions
+- [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) — monitoring on Grafana
+  Cloud: what's collected, setup runbook, alerts
 - [`docs/GO_V2_EXPLORATION.md`](docs/GO_V2_EXPLORATION.md) — scope of the
   `backend-go/` performance exploration (not the MVP backend)
 - [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) — frontend plan,
@@ -40,9 +42,11 @@ See:
 tests); frontend's full user journey (create → start session →
 host/display/play → results) is implemented, manually verified
 end-to-end, and covered by an automated Playwright E2E suite, which is stable
-(Decision #59 fixed the earlier flakiness). See [Run it locally](#run-it-locally)
-below to start it, `docs/FRONTEND_PLAN.md` for the frontend plan, and
-`CLAUDE.md` for the full up-to-date picture.
+(Decision #59 fixed the earlier flakiness). Metrics, traces and logs go to
+Grafana Cloud once configured (`docs/OBSERVABILITY.md`); not yet deployed.
+See [Run it locally](#run-it-locally) below to start it,
+`docs/FRONTEND_PLAN.md` for the frontend plan, and `CLAUDE.md` for the full
+up-to-date picture.
 
 ## Run it locally
 
@@ -87,6 +91,7 @@ a backend restart just run `make demo` again.
 | Command | What it does |
 | --- | --- |
 | `make up` | Start everything in Docker and wait until it's ready |
+| `make observe` | Like `make up`, plus a local Grafana at <http://localhost:3001> showing the backend's metrics, traces and logs ([`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md)) |
 | `make down` | Stop the Docker stack (keeps the database) |
 | `make restart` | `down` then `up` |
 | `make logs` | Follow logs from all containers |
@@ -178,3 +183,7 @@ The visual system (palette, type, components, motion) is documented in
 | Results (phone) |
 | --- |
 | <img src="docs/screenshots/results.jpg" alt="Final results podium on a phone" width="260"> |
+
+| Observability: the Pulz overview dashboard (`make observe`) |
+| --- |
+| ![Grafana dashboard with live sessions, gameplay rates, API latency, Node.js runtime and backend logs](docs/screenshots/observability.jpg) |

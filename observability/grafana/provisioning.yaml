@@ -1,0 +1,10 @@
+# Loads dashboards/*.json into the local `lgtm` container (docker-compose.yml,
+# `make observe`). Grafana Cloud doesn't read this file — import the JSON
+# there by hand (docs/OBSERVABILITY.md).
+apiVersion: 1
+providers:
+  - name: pulz
+    folder: Pulz
+    type: file
+    options:
+      path: /otel-lgtm/pulz-dashboards

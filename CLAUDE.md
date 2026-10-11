@@ -9,11 +9,11 @@ synchronous quiz session, players join from any device via a short join
 code (no account needed), answer on a color/shape button grid, and see
 live scoring, leaderboard rank, and a podium finish.
 
-## Current status (2026-09-28)
+## Current status (2026-10-11)
 
 **The MVP is feature-complete and verified end-to-end.** Don't assume this
 summary stays accurate as work continues — verify with `ls`/`git log`, and
-see `docs/DECISIONS.md` (the log runs to #69) for the why behind each piece.
+see `docs/DECISIONS.md` (the log runs to #70) for the why behind each piece.
 
 - **Home** (`/`) and a documented visual system (`docs/DESIGN_SYSTEM.md`,
   Decision #68): ink stage, one lime accent, Outfit/Geist type.
@@ -41,6 +41,11 @@ see `docs/DECISIONS.md` (the log runs to #69) for the why behind each piece.
   (stable since Decision #59). `make up` starts the whole stack and
   `make demo` seeds a playable 8-question game for manual checks
   (Decision #69; `make` lists every target).
+- **Observability** (Decision #70, `docs/OBSERVABILITY.md`): OpenTelemetry
+  metrics/traces/logs from the backend and Grafana Faro in the browser, both
+  off until their env vars are set; `make observe` adds a local Grafana with
+  the Pulz dashboard. Grafana Cloud itself isn't set up yet (needs the
+  deployment).
 
 There is also a **`backend-go/`** directory — this is a separate,
 non-shipping performance-exploration module (Go), not an alternative or
@@ -87,7 +92,7 @@ real backend. See `docs/GO_V2_EXPLORATION.md` and Decision #31.
   scaling, bulk approvals, etc.). Don't build these speculatively — flag
   them as future work if they come up.
 
-## What's left (as of 2026-09-28)
+## What's left (as of 2026-10-11)
 
 Everything tracked as a gap is closed. Remaining items are all deliberate
 deferrals — **confirm with the project owner before starting any of them**:
@@ -100,7 +105,9 @@ deferrals — **confirm with the project owner before starting any of them**:
    read the real client IP from `CF-Connecting-IP` (trusting it only from
    Cloudflare), and the frontend must be built with `VITE_API_URL` /
    `VITE_SOCKET_URL` pointing at the real backend, with `CORS_ORIGIN` set to
-   the real frontend origin.
+   the real frontend origin. Observability is already wired in (Decision
+   #70); turning it on is the Grafana Cloud steps in
+   `docs/OBSERVABILITY.md`.
 3. **Account recovery / cross-device Creator access** — deliberately not
    built (Decision #38); a passwordless-email upgrade is the documented
    option if the owner ever wants it. Don't build it speculatively.

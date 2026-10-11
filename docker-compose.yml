@@ -46,6 +46,9 @@ services:
       # full E2E run registers 3 Creators, so the default would trip after
       # ~3 runs an hour — raised here so the suite can be run repeatedly.
       REGISTER_RATE_LIMIT_PER_HOUR: "1000"
+      # Empty = telemetry off. `make observe` points it at the lgtm service
+      # below (docs/OBSERVABILITY.md).
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     ports:
       - "3000:3000"
     volumes:
@@ -66,6 +69,20 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+
+  # Opt-in local stand-in for Grafana Cloud (docs/OBSERVABILITY.md):
+  # Grafana + Prometheus + Loki + Tempo behind one OTLP endpoint, with the
+  # Pulz dashboard pre-loaded. Only started by `make observe` (the
+  # "observability" profile), never by a plain `make up`.
+  lgtm:
+    image: grafana/otel-lgtm:0.36.0
+    profiles: ["observability"]
+    ports:
+      - "3001:3000" # Grafana UI (3000 is the backend)
+      - "4318:4318" # OTLP/HTTP, for a native `make dev` backend
+    volumes:
+      - ./observability/grafana/provisioning.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/pulz.yaml:ro
+      - ./observability/grafana/dashboards:/otel-lgtm/pulz-dashboards:ro
 
 volumes:
   pulz_postgres_data:

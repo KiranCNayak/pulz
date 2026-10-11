@@ -1,3 +1,4 @@
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 import type { Server, Socket } from "socket.io";
 import {
   JOIN_CODE_LOCKOUT_DURATION_MS,
@@ -8,6 +9,7 @@ import {
 } from "../domain/constants.js";
 import { compositeRateKey, LockoutTracker, SlidingWindowLimiter } from "../domain/rateLimiter.js";
 import { getSessionById, getSessionByJoinCode, resolveParticipant } from "../domain/sessionStore.js";
+import { joinAttempts, rateLimited } from "../observability/metrics.js";
 import * as gameLoop from "../services/gameLoop.service.js";
 import { controllerRoom, displayRoom, baseRoom } from "../services/gameLoop.service.js";
 import { createParticipant, lobbyParticipantList, roleForJoin, validateDisplayName } from "../services/join.service.js";
@@ -99,21 +101,27 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
     (payload: { joinCode?: string; displayName?: string; participantToken?: string }) => {
       const joinCode = (payload?.joinCode ?? "").trim().toUpperCase();
       if (!joinCode) {
+        joinAttempts.add(1, { outcome: "rejected" });
         socket.emit("join:error", { error: "joinCode is required" });
         return;
       }
 
       if (joinCodeLockout.isLockedOut(joinCode)) {
+        joinAttempts.add(1, { outcome: "throttled" });
+        rateLimited.add(1, { limiter: "join_code_lockout" });
         socket.emit("join:error", { error: "Too many attempts against this code — try again later" });
         return;
       }
       if (!joinLimiter.consume(socketRateKey(socket))) {
+        joinAttempts.add(1, { outcome: "throttled" });
+        rateLimited.add(1, { limiter: "join" });
         socket.emit("join:error", { error: "Too many join attempts — slow down" });
         return;
       }
 
       const session = getSessionByJoinCode(joinCode);
       if (!session) {
+        joinAttempts.add(1, { outcome: "invalid_code" });
         joinCodeLockout.recordFailure(joinCode);
         socket.emit("join:error", { error: "Invalid or expired join code" });
         return;
@@ -129,6 +137,7 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
           socketContexts.set(socket.id, { sessionId: session.id, role: "PARTICIPANT", participantId: existing.id });
           socket.join(baseRoom(session.id));
           joinCodeLockout.recordSuccess(joinCode);
+          joinAttempts.add(1, { outcome: "resumed" });
           socket.emit("join:accepted", {
             participantId: existing.id,
             participantToken: existing.token,
@@ -145,6 +154,7 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
       const displayName = validateDisplayName(payload.displayName);
       const role = roleForJoin(session);
       if (!displayName || !role) {
+        joinAttempts.add(1, { outcome: "rejected" });
         joinCodeLockout.recordFailure(joinCode);
         socket.emit("join:error", {
           error: !role ? "This session has ended" : "displayName is required (1-24 characters)",
@@ -157,6 +167,7 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
       socketContexts.set(socket.id, { sessionId: session.id, role: "PARTICIPANT", participantId: participant.id });
       socket.join(baseRoom(session.id));
       joinCodeLockout.recordSuccess(joinCode);
+      joinAttempts.add(1, { outcome: "accepted" });
 
       socket.emit("join:accepted", { participantId: participant.id, participantToken: participant.token, role });
       io.to(baseRoom(session.id)).emit("session:lobby_update", { participants: lobbyParticipantList(session) });
@@ -177,12 +188,23 @@ export function registerSessionHandlers(io: Server, socket: Socket): void {
     if (!result.ok) socket.emit("host:error", { error: result.error });
   });
 
-  socket.on("host:next_question", () => {
+  // Async so the Socket.IO span stays open until advance() settles, and
+  // fully caught: advance() rejects if the end-of-game results write fails,
+  // and Socket.IO ignores a listener's promise — left uncaught, that
+  // rejection would crash the process and every live game with it.
+  socket.on("host:next_question", async () => {
     const { session } = requireHost(socket);
     if (!session) return;
-    void gameLoop.advance(io, session).then((result) => {
+    try {
+      const result = await gameLoop.advance(io, session);
       if (!result.ok) socket.emit("host:error", { error: result.error });
-    });
+    } catch (err) {
+      const span = trace.getActiveSpan();
+      span?.recordException(err instanceof Error ? err : String(err));
+      span?.setStatus({ code: SpanStatusCode.ERROR });
+      console.error("host:next_question failed", err);
+      socket.emit("host:error", { error: "The game ended, but its results couldn't be saved" });
+    }
   });
 
   socket.on(

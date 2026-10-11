@@ -1,3 +1,5 @@
+// First on purpose — see the note at the top of telemetry.ts.
+import { shutdownTelemetry } from "./observability/telemetry.js";
 import { buildApp } from "./app.js";
 import { env } from "./config/env.js";
 import { disconnectDb } from "./db/client.js";
@@ -22,6 +24,7 @@ async function main(): Promise<void> {
     clearInterval(cleanupTimer);
     await app.close();
     await disconnectDb();
+    await shutdownTelemetry();
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));

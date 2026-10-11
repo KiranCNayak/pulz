@@ -95,8 +95,9 @@ fly secrets set --stage --app pulz-api DATABASE_URL='<the Neon string from step 
 make cloud-deploy
 ```
 
-`make cloud-deploy` builds `backend/Dockerfile.prod`, runs `prisma migrate
-deploy` against Neon, then starts one machine. If `pulz-api` is taken,
+`make cloud-deploy` builds `backend/Dockerfile.prod`, runs the migrations
+against Neon (`backend/scripts/release.sh`, which stops early if
+`DATABASE_URL` is the pooled string), then starts one machine. If `pulz-api` is taken,
 pick another name and change `app` in `backend/fly.toml` plus the CNAME
 target below.
 
@@ -205,6 +206,29 @@ after.
 - **`make cloud-up` times out:** `fly logs --app pulz-api`. A database
   error usually means `DATABASE_URL` is the pooled Neon string or has extra
   parameters (step 2).
+- **Deploy fails with `P1002 … Timed out trying to acquire a postgres
+  advisory lock`:** shouldn't happen any more. `backend/scripts/release.sh`
+  refuses the pooled connection string and skips Prisma's migration lock
+  (only the release machine ever migrates, so the lock guards nothing
+  here). It did happen on the first deploy: an earlier run, through the
+  pooled string or killed mid-migration, left the lock held in Neon. If
+  it comes back, or to clear a lock left over from then, Neon → your
+  project → **SQL Editor**:
+
+  ```sql
+  -- who holds it (Prisma's lock id is 72707369)
+  SELECT l.pid, a.state, a.backend_start, a.state_change, left(a.query, 80) AS last_query
+  FROM pg_locks l JOIN pg_stat_activity a USING (pid)
+  WHERE l.locktype = 'advisory' AND l.objid = 72707369;
+
+  -- release it
+  SELECT pg_terminate_backend(pid) FROM pg_locks
+  WHERE locktype = 'advisory' AND objid = 72707369;
+  ```
+
+  If the second query is refused, restart the compute instead (branch
+  overview → the compute's menu → Restart), which drops every connection.
+  Then `make cloud-deploy` again.
 - **The site loads but says offline after `cloud-up`:** check
   `https://pulz-api.knayak.fyi/health` directly. If that works, the
   frontend was built without `VITE_API_URL`: set it in Pages and redeploy

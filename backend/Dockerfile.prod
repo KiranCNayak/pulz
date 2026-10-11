@@ -21,10 +21,11 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 # @prisma/client's postinstall generates the client from prisma/. The
-# prisma CLI is a production dependency so fly.toml's release_command can
-# run `prisma migrate deploy` from this same image.
+# prisma CLI is a production dependency so fly.toml's release_command
+# (scripts/release.sh) can run `prisma migrate deploy` from this image.
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
+COPY scripts/release.sh ./scripts/release.sh
 USER node
 EXPOSE 3000
 CMD ["node", "dist/index.js"]

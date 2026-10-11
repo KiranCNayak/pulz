@@ -34,3 +34,5 @@ coverage/
 # Playwright
 frontend/playwright-report/
 frontend/test-results/
+
+.serena/

@@ -68,12 +68,14 @@ to an MVP that is cheap to run and simple to operate.
    - **Display view** — cast-friendly, read-only, no controls, large
      text/high contrast, meant to be projected/cast to a shared screen.
      Shows the current question, live answer-count ticker, and leaderboard
-     transitions.
+     transitions. The lobby shows a **QR code** next to the join code; the
+     Controller can pop up the same code at any time (Decision #77).
 4. Host advances through questions; game ends after the last question with
    a podium screen.
 
 ### 4.3 Joining and playing (Player / Spectator)
-1. Player opens the join page, enters the 6-char join code, a display
+1. Player opens the join page (or scans the QR code, which opens it with
+   the code filled in), enters the 6-char join code, a display
    name (no account), and picks an **avatar**: one of 8 colours and one of
    20 emoji (Decision #74). It's shown next to their name in the lobby,
    leaderboards, podium and results.
@@ -98,6 +100,9 @@ to an MVP that is cheap to run and simple to operate.
    The confetti keeps raining and the winner's avatar dances (Decision #76).
    The winner's own phone celebrates the same way, with a trophy and
    "You won!".
+4. Anyone on the results page can **share the results as an image**: a
+   portrait podium card with the quiz title, sent through the phone's share
+   sheet (WhatsApp etc.) or downloaded (Decision #78).
 2. Results page: ranks 4–10 shown alongside the podium on the first page;
    ranks 11+ paginated.
 3. A results snapshot is persisted with a **configurable TTL (default 24h)**,

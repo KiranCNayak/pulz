@@ -4,6 +4,29 @@ Live, real-time quiz platform (Kahoot!-style). Host runs a synchronous quiz
 session; players join from any device via a short join code, answer on a
 color/shape button grid, and see live scoring.
 
+## Features
+
+- **Build a quiz** with 2 to 4 answers per question, a time limit each, and
+  an optional image (up to 5 MB) shown with the question.
+- **Host it on two screens:** a Host controller to run the game and a
+  read-only Display for the projector.
+- **Join from any phone, no account:** type the game PIN or **scan the QR
+  code** on the Display (or the one the host can pop up from the
+  controller), which opens the join page with the PIN already filled in.
+  Then pick a name and an **emoji avatar**.
+- **Join mid-game:** late arrivals are asked into the game automatically;
+  the host approves each one, and they score from the next question.
+- **Fair, fast scoring:** server-side and time-based (1000 down to 500 for a
+  correct answer), with a live leaderboard between questions.
+- **A proper finish:** a podium with confetti on the Display, the winner's
+  own phone celebrates, and everyone sees each player's correct answers
+  out of the ones they answered ("5 of 8 correct").
+- **Share the results as an image:** one tap on the results page makes a
+  podium card sized for WhatsApp, Instagram and the like. On phones it
+  opens the share sheet; elsewhere it downloads the PNG.
+- **Reconnects anywhere:** players, host and display all pick up where they
+  left off after a refresh or a dropped connection.
+
 See:
 - [`CLAUDE.md`](CLAUDE.md) — orientation for any agent/contributor picking
   this up
@@ -37,7 +60,7 @@ See:
 - [`frontend/`](frontend/) — React + Vite SPA. All eight routes (Home,
   Creator flows, Host, Display, Join/Play, Results) are implemented, including the
   Creator→session hand-off. Manually verified end-to-end against a live
-  backend and covered by three Playwright E2E tests. See
+  backend and covered by a Playwright E2E suite. See
   `docs/FRONTEND_PLAN.md`.
 
 **Status:** MVP backend implemented and verified end-to-end (unit and real-socket
@@ -170,25 +193,29 @@ The visual system (palette, type, components, motion) is documented in
 | --- |
 | ![Edit quiz with a live session and its join code](docs/screenshots/edit.jpg) |
 
-| Join | Host controller |
+| Join (name + avatar) | Host controller |
 | --- | --- |
-| ![Join a game](docs/screenshots/join.jpg) | ![Host controller after a question is locked](docs/screenshots/host.jpg) |
+| ![Join a game: PIN, name and an emoji avatar picker](docs/screenshots/join.jpg) | ![Host controller after a question is locked, with a mid-game join request](docs/screenshots/host.jpg) |
 
-| Display — lobby | Display — question |
+| Display — lobby with scan-to-join | Host — scan-to-join QR |
 | --- | --- |
-| ![Display lobby with the join code](docs/screenshots/display-lobby.jpg) | ![Display showing a live question](docs/screenshots/display.jpg) |
+| ![Display lobby with the game PIN, a QR code to join, and players' avatars](docs/screenshots/display-lobby.jpg) | ![Host controller showing a large QR code for the room to scan](docs/screenshots/host-qr.jpg) |
+
+| Display — question with an image |
+| --- |
+| ![Display showing a live question with its image](docs/screenshots/display.jpg) |
 
 | Display — reveal + leaderboard | Display — podium |
 | --- | --- |
-| ![Display revealing the correct answer beside the leaderboard](docs/screenshots/display-reveal.jpg) | ![Display end-of-game podium](docs/screenshots/display-podium.jpg) |
+| ![Display revealing the correct answer beside the leaderboard](docs/screenshots/display-reveal.jpg) | ![Display end-of-game podium with avatars, correct-answer counts and confetti](docs/screenshots/display-podium.jpg) |
 
 | Play (phone) — question | Play (phone) — result |
 | --- | --- |
 | <img src="docs/screenshots/play.jpg" alt="Player's phone: shape-only answer tiles mirroring the Display layout" width="260"> | <img src="docs/screenshots/play-result.jpg" alt="Player's correct-answer result screen" width="260"> |
 
-| Results (phone) |
-| --- |
-| <img src="docs/screenshots/results.jpg" alt="Final results podium on a phone" width="260"> |
+| Results (winner's phone) | Shared results image |
+| --- | --- |
+| <img src="docs/screenshots/results.jpg" alt="Winner's results page: trophy, You won!, confetti, the podium with correct-answer counts and a Share results button" width="260"> | <img src="docs/screenshots/share.jpg" alt="The shareable results card: quiz title, podium with avatars, scores and correct answers" width="300"> |
 
 | Observability: the Pulz overview dashboard (`make observe`) |
 | --- |

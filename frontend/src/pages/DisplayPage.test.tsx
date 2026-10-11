@@ -91,6 +91,8 @@ describe('DisplayPage', () => {
     })
     expect(screen.getByText('ABC123')).toBeInTheDocument()
     expect(screen.getByText(/\/join$/)).toBeInTheDocument()
+    expect(screen.getByText('Or scan')).toBeInTheDocument()
+    expect(screen.getByTitle('QR code to join game ABC123')).toBeInTheDocument() // Decision #77
     expect(screen.getByText('Priya')).toBeInTheDocument()
     expect(screen.getByText('1 player')).toBeInTheDocument()
     expect(screen.getByText(/Waiting for the host to start the game/)).toBeInTheDocument()

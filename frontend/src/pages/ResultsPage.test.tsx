@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchResults, ResultsNotFoundError, type ResultsResponse } from '@/lib/resultsApi'
+import { shareResultsImage } from '@/lib/resultsImage'
 import { ResultsPage } from './ResultsPage'
 
 vi.mock('@/lib/resultsApi', async () => {
@@ -10,7 +11,11 @@ vi.mock('@/lib/resultsApi', async () => {
   return { ...actual, fetchResults: vi.fn() }
 })
 
+// jsdom has no canvas, so the drawing itself isn't exercised here.
+vi.mock('@/lib/resultsImage', () => ({ shareResultsImage: vi.fn() }))
+
 const mockedFetchResults = vi.mocked(fetchResults)
+const mockedShare = vi.mocked(shareResultsImage)
 
 function renderResultsPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -93,6 +98,18 @@ describe('ResultsPage', () => {
     renderResultsPage()
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'You won!' })).toBeInTheDocument())
+  })
+
+  it('shares the results as an image, saying so when it fell back to a download (Decision #78)', async () => {
+    mockedFetchResults.mockResolvedValue({ ...withCounts, quizTitle: 'Friday trivia' })
+    mockedShare.mockResolvedValue('downloaded')
+    renderResultsPage()
+
+    await waitFor(() => expect(screen.getByText('Friday trivia')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Share results' }))
+
+    await waitFor(() => expect(screen.getByText(/Image saved/)).toBeInTheDocument())
+    expect(mockedShare).toHaveBeenCalledWith(expect.objectContaining({ quizTitle: 'Friday trivia' }))
   })
 
   it('shows an expired/empty state on a 404', async () => {

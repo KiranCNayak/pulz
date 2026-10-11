@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, CircleAlert, Hourglass, Trophy } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CircleAlert, Hourglass, LoaderCircle, Share2, Trophy } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { getParticipantId } from '@/hooks/useGameSocket'
 import { formatNumber } from '@/lib/format'
-import { fetchResults, ResultsNotFoundError } from '@/lib/resultsApi'
+import { fetchResults, ResultsNotFoundError, type ResultsResponse } from '@/lib/resultsApi'
+import { shareResultsImage, type ShareOutcome } from '@/lib/resultsImage'
 
 const PAGE_SIZE = 10
 
@@ -81,8 +82,15 @@ export function ResultsPage() {
             {iWon ? 'You won!' : 'Final results'}
           </h1>
           <p className="text-muted-foreground">
+            {data.quizTitle ? (
+              <>
+                <span className="font-medium text-foreground">{data.quizTitle}</span>
+                {' · '}
+              </>
+            ) : null}
             {data.totalParticipants} participant{data.totalParticipants === 1 ? '' : 's'}
           </p>
+          <ShareResultsButton results={data} />
         </div>
 
         <div className="mt-10">
@@ -104,26 +112,26 @@ export function ResultsPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-xs text-muted-foreground">
-                  <th scope="col" className="w-20 px-5 py-3 font-semibold">Rank</th>
-                  <th scope="col" className="px-5 py-3 font-semibold">Name</th>
-                  <th scope="col" className="px-5 py-3 text-right font-semibold">Correct</th>
-                  <th scope="col" className="px-5 py-3 text-right font-semibold">Score</th>
+                  <th scope="col" className="w-14 px-3 py-3 sm:w-20 sm:px-5 font-semibold">Rank</th>
+                  <th scope="col" className="px-3 py-3 sm:px-5 font-semibold">Name</th>
+                  <th scope="col" className="w-px px-3 py-3 text-right font-semibold whitespace-nowrap sm:px-5">Correct</th>
+                  <th scope="col" className="w-px px-3 py-3 text-right font-semibold sm:px-5">Score</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {data.ranks.map((entry) => (
                   <tr key={entry.participantId} className="transition-colors duration-150 hover:bg-muted/50">
-                    <td className="px-5 py-3.5 font-medium text-muted-foreground tabular-nums">#{entry.rank}</td>
-                    <td className="max-w-0 px-5 py-3.5 font-semibold">
+                    <td className="px-3 py-3.5 sm:px-5 font-medium text-muted-foreground tabular-nums">#{entry.rank}</td>
+                    <td className="max-w-0 px-3 py-3.5 sm:px-5 font-semibold">
                       <span className="flex items-center gap-2.5">
                         <Avatar avatar={entry.avatar} name={entry.displayName} className="size-7 text-base" />
                         <span className="min-w-0 truncate">{entry.displayName}</span>
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-right whitespace-nowrap text-muted-foreground tabular-nums">
+                    <td className="px-3 py-3.5 sm:px-5 text-right whitespace-nowrap text-muted-foreground tabular-nums">
                       {entry.answeredCount !== undefined ? `${entry.correctCount} of ${entry.answeredCount}` : null}
                     </td>
-                    <td className="px-5 py-3.5 text-right font-display font-bold tabular-nums">{formatNumber(entry.score)}</td>
+                    <td className="px-3 py-3.5 sm:px-5 text-right font-display font-bold tabular-nums">{formatNumber(entry.score)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -161,4 +169,44 @@ export function ResultsPage() {
   }
 
   return <AppShell>{content}</AppShell>
+}
+
+/** "Share results" (Decision #78): the podium as an image for WhatsApp
+ * and the like, via the share sheet where the browser offers one, or as a
+ * download. */
+function ShareResultsButton({ results }: { results: ResultsResponse }) {
+  const [busy, setBusy] = useState(false)
+  const [outcome, setOutcome] = useState<ShareOutcome | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const share = async () => {
+    setBusy(true)
+    setError(null)
+    setOutcome(null)
+    try {
+      setOutcome(await shareResultsImage(results))
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-col items-center gap-2">
+      <Button type="button" variant="outline" disabled={busy} onClick={share}>
+        {busy ? <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" /> : <Share2 aria-hidden="true" />}
+        {busy ? 'Making image…' : 'Share results'}
+      </Button>
+      <p aria-live="polite" className="text-sm text-muted-foreground">
+        {error ? (
+          <span role="alert" className="font-medium text-destructive">
+            {error}
+          </span>
+        ) : outcome === 'downloaded' ? (
+          'Image saved. Post it wherever you like.'
+        ) : null}
+      </p>
+    </div>
+  )
 }

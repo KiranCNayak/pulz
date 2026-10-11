@@ -139,6 +139,9 @@ large surfaces, a second accent colour.
   stroke 2) or numerals. Player avatars are the one exception: they're the
   player's chosen identity, not an icon (Decision #74), always an emoji on a
   circle in one of the 8 avatar colours.
+- Themed QR codes. The join QR (Decision #77) is always Ink on white with a
+  white quiet zone, in both themes, because that's what phone cameras read
+  reliably.
 - Raw enums in UI (`IN_PROGRESS`); always human labels.
 - Purple or neon gradients, outer glows, gradient text, custom cursors.
 - Three equal feature cards; fake screenshots built from divs; fake

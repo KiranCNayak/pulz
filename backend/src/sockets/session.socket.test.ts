@@ -52,6 +52,7 @@ function makeSession(questions: SnapshotQuestion[]): GameSession {
     id: createSessionId(),
     joinCode: allocateJoinCode(),
     quizId: "quiz-1",
+    quizTitle: "Friday trivia",
     hostToken: randomBytes(16).toString("hex"),
     displayToken: randomBytes(16).toString("hex"),
     status: "LOBBY",

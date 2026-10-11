@@ -13,7 +13,7 @@ live scoring, leaderboard rank, and a podium finish.
 
 **The MVP is feature-complete and verified end-to-end.** Don't assume this
 summary stays accurate as work continues — verify with `ls`/`git log`, and
-see `docs/DECISIONS.md` (the log runs to #76) for the why behind each piece.
+see `docs/DECISIONS.md` (the log runs to #78) for the why behind each piece.
 
 - **Home** (`/`) and a documented visual system (`docs/DESIGN_SYSTEM.md`,
   Decision #68): ink stage, one lime accent, Outfit/Geist type.
@@ -38,7 +38,9 @@ see `docs/DECISIONS.md` (the log runs to #76) for the why behind each piece.
 - **Owner requests after the MVP (2026-10-12):** joining mid-game asks the
   host automatically, with no "request to play" button (Decision #73);
   emoji-on-colour avatars picked at join (Decision #74); one optional image
-  per question, up to 5 MB, stored in Postgres (Decision #75).
+  per question, up to 5 MB, stored in Postgres (Decision #75); a
+  scan-to-join QR code on the Display and Host (Decision #77); and a
+  share-results-as-image button (Decision #78).
 - **Abuse resilience (app-level)**: join-code lockout, composite-key
   (IP + client id) connect/join limits, a per-connection message cap, and a
   registration limit (Decisions #23, #59, #66, #38). The Cloudflare/Turnstile

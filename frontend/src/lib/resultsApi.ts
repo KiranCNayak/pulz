@@ -18,6 +18,8 @@ export type PodiumEntry = {
 export type ResultsResponse = {
   sessionId: string
   quizId: string
+  /** Absent on results saved before Decision #78. */
+  quizTitle?: string
   generatedAt: string
   totalParticipants: number
   podium: PodiumEntry[]

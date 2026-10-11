@@ -80,6 +80,7 @@ export interface GameSession {
   id: string; // unguessable UUID (results link)
   joinCode: string; // 6-char alphanumeric, what players type
   quizId: string;
+  quizTitle: string; // snapshotted with the questions, for the results page/share image (Decision #78)
   hostToken: string;
   displayToken: string;
   status: SessionStatus;
@@ -109,6 +110,7 @@ export interface PodiumEntry {
 export interface ResultsPayload {
   sessionId: string;
   quizId: string;
+  quizTitle?: string; // absent on snapshots saved before Decision #78
   generatedAt: string;
   totalParticipants: number;
   podium: PodiumEntry[]; // top 3

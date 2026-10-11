@@ -59,7 +59,7 @@ Answer
   points (non-negative integer; 0, or 500-1000 for a correct answer, see PRD §5)
 
 ResultsSnapshot
-  sessionId, generatedAt, expiresAt, payload (podium + paginated ranks)
+  sessionId, generatedAt, expiresAt, payload (quizTitle, podium + paginated ranks)
 ```
 
 **Invariants enforced at the data layer, not just app code:**

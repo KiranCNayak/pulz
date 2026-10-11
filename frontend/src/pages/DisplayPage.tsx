@@ -6,12 +6,14 @@ import { Confetti } from '@/components/Confetti'
 import { Avatar } from '@/components/Avatar'
 import { toAnswerOptions } from '@/components/answerStyles'
 import { Countdown } from '@/components/Countdown'
+import { JoinQrCode } from '@/components/JoinQrCode'
 import { GameStage } from '@/components/GameStage'
 import { Wordmark } from '@/components/Logo'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGameSocket } from '@/hooks/useGameSocket'
 import type { Avatar as AvatarValue } from '@/lib/avatars'
 import { formatNumber } from '@/lib/format'
+import { joinPageLabel } from '@/lib/joinLink'
 import { questionImageSrc } from '@/lib/images'
 import { questionDeadline } from '@/lib/questionTimer'
 import { getSocket } from '@/lib/socket'
@@ -263,7 +265,7 @@ function QuestionProgress({ question }: { question: QuestionBroadcast }) {
 
 function LobbyScreen({ joinCode, participants }: { joinCode: string | null; participants: LobbyParticipant[] }) {
   const players = participants.filter((p) => !p.role || p.role === 'PLAYER')
-  const joinUrl = `${window.location.host}/join`
+  const joinUrl = joinPageLabel()
 
   return (
     <GameStage className="gap-8 px-12 py-10">
@@ -276,15 +278,24 @@ function LobbyScreen({ joinCode, participants }: { joinCode: string | null; part
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-10">
-        <section className="flex w-full max-w-[min(64rem,70vw)] flex-col items-center overflow-hidden rounded-3xl bg-stage-foreground text-[#0e1118] shadow-[0_12px_0_rgb(0_0_0/0.4)] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
+        <section className="flex w-full max-w-[min(80rem,86vw)] flex-col items-center overflow-hidden rounded-3xl bg-stage-foreground text-[#0e1118] shadow-[0_12px_0_rgb(0_0_0/0.4)] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
           <p className="w-full border-b border-[#0e1118]/10 bg-[#0e1118]/[0.04] px-10 py-5 text-center text-[clamp(2.25rem,2.5vw,3rem)] font-semibold text-[#0e1118]/65">
             Join at <strong className="font-display font-extrabold text-[#0e1118] [overflow-wrap:anywhere]">{joinUrl}</strong>
           </p>
-          <div className="flex flex-col items-center gap-2 px-10 pt-6 pb-9">
-            <p className="text-2xl font-bold tracking-[0.3em] text-[#0e1118]/55 uppercase">Game PIN</p>
-            <p translate="no" className="pl-[0.15em] font-mono text-[clamp(7rem,10.5vw,13rem)] leading-none font-bold tracking-[0.15em]">
-              {joinCode ?? '······'}
-            </p>
+          <div className="flex w-full items-center justify-center gap-12 px-10 pt-6 pb-8">
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-2xl font-bold tracking-[0.3em] text-[#0e1118]/55 uppercase">Game PIN</p>
+              <p translate="no" className="pl-[0.15em] font-mono text-[clamp(6rem,8.5vw,11rem)] leading-none font-bold tracking-[0.15em]">
+                {joinCode ?? '······'}
+              </p>
+            </div>
+            {/* Scan instead of typing (Decision #77). */}
+            {joinCode ? (
+              <div className="flex shrink-0 flex-col items-center gap-2 border-l border-[#0e1118]/10 pl-12">
+                <p className="text-2xl font-bold tracking-[0.3em] text-[#0e1118]/55 uppercase">Or scan</p>
+                <JoinQrCode joinCode={joinCode} className="size-[clamp(10rem,14vw,17rem)] rounded-2xl" />
+              </div>
+            ) : null}
           </div>
         </section>
 

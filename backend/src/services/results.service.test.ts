@@ -22,6 +22,7 @@ function makeSession(): GameSession {
     id: "session-1",
     joinCode: "ABC123",
     quizId: "quiz-1",
+    quizTitle: "Friday trivia",
     hostToken: "host-token",
     displayToken: "display-token",
     status: "ENDED",
@@ -95,6 +96,7 @@ describe("writeResultsSnapshot", () => {
       { displayName: "Sam", correctCount: 1, answeredCount: 2 },
     ]);
     expect(payload.podium[0].avatar).toEqual(original.avatar);
+    expect(payload.quizTitle).toBe("Friday trivia"); // for the share image (Decision #78)
   });
 
   it("puts only the top 3 in the podium, with everyone in ranks", async () => {

@@ -68,6 +68,7 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
         reply.send({
           sessionId: results.sessionId,
           quizId: results.quizId,
+          quizTitle: results.quizTitle,
           generatedAt: results.generatedAt,
           totalParticipants: results.totalParticipants,
           podium: results.podium,

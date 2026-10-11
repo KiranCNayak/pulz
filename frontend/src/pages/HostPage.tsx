@@ -11,6 +11,7 @@ import {
   Loader2,
   Lock,
   Play,
+  QrCode,
   Trophy,
   UserPlus,
   Users,
@@ -22,6 +23,7 @@ import { Avatar } from '@/components/Avatar'
 import { toAnswerOptions } from '@/components/answerStyles'
 import { ConnectionErrorMessage } from '@/components/ConnectionErrorMessage'
 import { Countdown } from '@/components/Countdown'
+import { JoinQrCode } from '@/components/JoinQrCode'
 import { BrandMark } from '@/components/Logo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,6 +32,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGameSocket } from '@/hooks/useGameSocket'
 import type { Avatar as AvatarValue } from '@/lib/avatars'
 import { formatNumber } from '@/lib/format'
+import { joinPageLabel } from '@/lib/joinLink'
 import { questionImageSrc } from '@/lib/images'
 import { useTheme } from '@/hooks/useTheme'
 import { questionDeadline } from '@/lib/questionTimer'
@@ -482,7 +485,7 @@ function HostHeader({ status, joinCode }: { status: SessionStatus; joinCode: str
             </div>
             <p className="text-sm text-muted-foreground">
               Players join at{' '}
-              <span className="font-medium text-foreground">{window.location.host}/join</span>
+              <span className="font-medium text-foreground">{joinPageLabel()}</span>
             </p>
           </div>
         </div>
@@ -502,9 +505,50 @@ function HostHeader({ status, joinCode }: { status: SessionStatus; joinCode: str
           >
             {copied ? <Check aria-hidden="true" className="text-stage-correct dark:text-emerald-400" /> : <Copy aria-hidden="true" />}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-lg"
+            className="size-11 rounded-lg"
+            popoverTarget="join-qr"
+            aria-label="Show QR code to join"
+          >
+            <QrCode aria-hidden="true" />
+          </Button>
         </div>
+        <JoinQrPanel joinCode={joinCode} />
       </div>
     </header>
+  )
+}
+
+/**
+ * Scan-to-join for the host to show the room, e.g. by turning the laptop
+ * round (Decision #77) — works in the lobby and mid-game, where joining
+ * now asks to play (#73). A native popover: centred on top of the page,
+ * closed by Escape, a click outside, or the Done button.
+ */
+function JoinQrPanel({ joinCode }: { joinCode: string }) {
+  return (
+    <div
+      id="join-qr"
+      popover="auto"
+      className="m-auto rounded-3xl border bg-card p-8 text-card-foreground shadow-2xl backdrop:bg-[#0b0d14]/60"
+    >
+      <div className="flex flex-col items-center gap-4 text-center">
+        <h2 className="font-display text-2xl font-bold tracking-tight">Scan to join</h2>
+        <JoinQrCode joinCode={joinCode} className="size-72 ring-1 ring-border" />
+        <p className="text-sm text-muted-foreground">
+          Or go to <span className="font-medium text-foreground">{joinPageLabel()}</span> and enter
+        </p>
+        <p translate="no" className="font-mono text-4xl font-bold tracking-[0.18em]">
+          {joinCode}
+        </p>
+        <Button type="button" variant="outline" popoverTarget="join-qr" popoverTargetAction="hide">
+          Done
+        </Button>
+      </div>
+    </div>
   )
 }
 

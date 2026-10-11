@@ -14,6 +14,7 @@ function makeSession(status: GameSession["status"]): GameSession {
     id: "session-1",
     joinCode: "ABC123",
     quizId: "quiz-1",
+    quizTitle: "Friday trivia",
     hostToken: "host-token",
     displayToken: "display-token",
     status,

@@ -91,7 +91,8 @@ describe('HostPage', () => {
       })
     })
 
-    expect(screen.getByText('ABC123')).toBeInTheDocument()
+    // In the header, and again in the (closed) scan-to-join panel.
+    expect(screen.getAllByText('ABC123')).toHaveLength(2)
     expect(screen.getByText('Alice')).toBeInTheDocument()
     expect(screen.getByText('Start game')).toBeInTheDocument()
   })
@@ -234,6 +235,13 @@ describe('HostPage', () => {
     expect(screen.getByRole('heading', { name: 'Join requests' })).toBeInTheDocument()
     expect(screen.getAllByText('Late Lou')).toHaveLength(1)
     expect(screen.getByText('🐢')).toBeInTheDocument()
+  })
+
+  it('offers a scan-to-join QR code from the header (Decision #77)', () => {
+    authenticate()
+    const button = screen.getByRole('button', { name: 'Show QR code to join' })
+    expect(button).toHaveAttribute('popovertarget', 'join-qr')
+    expect(screen.getByTitle('QR code to join game ABC123')).toBeInTheDocument()
   })
 
   it('shows the ended state with a results link', () => {

@@ -49,6 +49,7 @@ export async function createGameSession(
     id: createSessionId(),
     joinCode: allocateJoinCode(),
     quizId,
+    quizTitle: quiz.title,
     hostToken: generateToken(),
     displayToken: generateToken(),
     status: "LOBBY",

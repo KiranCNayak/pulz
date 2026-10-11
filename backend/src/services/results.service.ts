@@ -18,6 +18,7 @@ function buildPayload(session: GameSession): ResultsPayload {
   return {
     sessionId: session.id,
     quizId: session.quizId,
+    quizTitle: session.quizTitle,
     generatedAt: new Date().toISOString(),
     totalParticipants: ranked.length,
     podium: ranked.slice(0, 3),
